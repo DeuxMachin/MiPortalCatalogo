@@ -1,0 +1,117 @@
+import type { Product, RelatedProduct } from './types';
+
+export const MOCK_PRODUCTS: Product[] = [
+    {
+        id: 1,
+        sku: 'RB-60-0012',
+        title: 'Barra de Acero de Alta Resistencia - Grado 60 (6m)',
+        categoryId: 1,
+        category: 'Barras de Acero',
+        price: 12450,
+        unit: 'CLP',
+        stock: 'EN STOCK',
+        description:
+            'Acero al carbono de alta calidad para refuerzo. Patrón corrugado para máxima adherencia al concreto. Certificado para estructuras industriales pesadas.',
+        specs: { diámetro: '12 mm', peso: '6.1 kg/unidad' },
+        fullSpecs: {
+            Material: 'Acero de Refuerzo',
+            Grado: 'G60',
+            Diámetro: '12 mm',
+            Largo: '6.0 m',
+            Peso: '6.1 kg/unidad',
+            Origen: 'Planta Talcahuano',
+        },
+        images: [
+            'https://images.unsplash.com/photo-1518709766631-a6a7f45921c3?auto=format&fit=crop&q=80&w=600',
+            'https://images.unsplash.com/photo-1504917595217-d4dc5ebe6122?auto=format&fit=crop&q=80&w=600',
+            'https://images.unsplash.com/photo-1565034946487-077786996e27?auto=format&fit=crop&q=80&w=600',
+            'https://images.unsplash.com/photo-1589939705384-5185138a04b9?auto=format&fit=crop&q=80&w=600',
+        ],
+        grade: 'Grado 60',
+        rating: 4,
+        reviews: 87,
+        isPublished: true,
+    },
+    {
+        id: 2,
+        sku: 'IB-W12-45',
+        title: 'Viga de Acero Doble T (W12x45)',
+        categoryId: 2,
+        category: 'Vigas I',
+        price: 758900,
+        unit: 'CLP',
+        stock: 'A PEDIDO',
+        description:
+            'Acero estructural de baja aleación y alta resistencia ASTM A992. Ideal para marcos, construcción de puentes y aplicaciones de carga comercial.',
+        specs: { largo: '9 m', grado: 'ASTM A992' },
+        fullSpecs: {
+            Material: 'Acero Estructural',
+            Norma: 'ASTM A992',
+            Largo: '9.0 m',
+            Peso: '66.7 kg/m',
+            'Ancho Ala': '210 mm',
+            Origen: 'Importado',
+        },
+        images: [
+            'https://images.unsplash.com/photo-1504917595217-d4dc5ebe6122?auto=format&fit=crop&q=80&w=600',
+            'https://images.unsplash.com/photo-1518709766631-a6a7f45921c3?auto=format&fit=crop&q=80&w=600',
+            'https://images.unsplash.com/photo-1565034946487-077786996e27?auto=format&fit=crop&q=80&w=600',
+        ],
+        grade: 'A615',
+        rating: 5,
+        reviews: 42,
+        isPublished: true,
+    },
+    {
+        id: 3,
+        sku: 'SS234-CLP',
+        title: 'Saco Cemento Extra-Fuerte Especial 25kg',
+        categoryId: 3,
+        category: 'Hormigones y Cementos',
+        price: 8490,
+        unit: 'CLP',
+        stock: 'DISPONIBLE',
+        description:
+            'Cemento de alta calidad diseñado para obras que requieren una puesta en servicio rápida. Ideal para estructuras de hormigón armado.',
+        specs: { peso: '25 kg', resistencia: 'H-30' },
+        fullSpecs: {
+            Marca: 'Bio Bio Cementos',
+            Modelo: 'Especial Extra-Fuerte',
+            Peso: '25 kg',
+            Resistencia: 'H-30 (30 MPa)',
+            Uso: 'Fundaciones, Vigas y Losas',
+            Origen: 'Chile',
+        },
+        images: [
+            'https://images.unsplash.com/photo-1589939705384-5185138a04b9?auto=format&fit=crop&q=80&w=600',
+            'https://images.unsplash.com/photo-1504917595217-d4dc5ebe6122?auto=format&fit=crop&q=80&w=600',
+        ],
+        rating: 4,
+        reviews: 128,
+        isPublished: true,
+    },
+];
+
+export const MOCK_RELATED: RelatedProduct[] = [
+    {
+        id: 101,
+        title: 'Arena Fina Seleccionada 20kg',
+        price: 3190,
+        category: 'Materiales',
+        image: 'https://images.unsplash.com/photo-1533038590840-1cde6e668a91?auto=format&fit=crop&q=80&w=300',
+    },
+    {
+        id: 102,
+        title: 'Mezcladora Eléctrica Industrial',
+        price: 189900,
+        category: 'Herramientas',
+        image: 'https://images.unsplash.com/photo-1581094288338-2314dddb7ecc?auto=format&fit=crop&q=80&w=300',
+    },
+    {
+        id: 103,
+        title: 'Casco de Seguridad Pro NCh',
+        price: 12490,
+        category: 'Seguridad',
+        image: 'https://images.unsplash.com/photo-1513467535987-fd81bc7d62f8?auto=format&fit=crop&q=80&w=300',
+    },
+];
