@@ -6,16 +6,16 @@ import { useAuth } from '@/src/features/auth';
 import LoginForm from '@/src/features/auth/ui/LoginForm';
 
 export default function LoginPage() {
-    const { isAuthenticated } = useAuth();
+    const { isAuthenticated, isInitialising } = useAuth();
     const router = useRouter();
 
     useEffect(() => {
-        if (isAuthenticated) {
+        if (!isInitialising && isAuthenticated) {
             router.replace('/catalog');
         }
-    }, [isAuthenticated, router]);
+    }, [isAuthenticated, isInitialising, router]);
 
-    if (isAuthenticated) return null;
+    if (isInitialising || isAuthenticated) return null;
 
     return <LoginForm />;
 }

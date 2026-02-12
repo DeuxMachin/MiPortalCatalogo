@@ -7,8 +7,10 @@ import { useProducts } from '@/src/features/product-management';
 
 export default function EditProductPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
-    const { getProduct } = useProducts();
-    const product = getProduct(Number(id));
+    const { getProduct, loading } = useProducts();
+    const product = getProduct(id);
+
+    if (loading) return null;
 
     if (!product) {
         notFound();

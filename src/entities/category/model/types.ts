@@ -1,17 +1,9 @@
-/** Subcategoría dentro de una categoría del catálogo. */
-export interface SubCategory {
-    id: number;
-    name: string;
-    slug: string;
-}
-
-/** Categoría del catálogo con subcategorías. */
+/** Categoría sincronizada con la tabla public.categorias de Supabase. */
 export interface Category {
-    id: number;
-    name: string;
+    id: string;              // uuid
+    nombre: string;
     slug: string;
-    description: string;
-    icon: string;
-    productCount: number;
-    subcategories: SubCategory[];
+    activo: boolean;
+    creado_en: string;       // ISO timestamp
+    actualizado_en: string;  // ISO timestamp
 }

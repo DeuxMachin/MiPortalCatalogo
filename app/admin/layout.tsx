@@ -21,19 +21,27 @@ const ADMIN_NAV: AdminNavItem[] = [
 ];
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
-    const { isAuthenticated, user, logout } = useAuth();
+    const { isAuthenticated, isInitialising, user, logout } = useAuth();
     const router = useRouter();
 
     useEffect(() => {
-        if (!isAuthenticated) {
+        if (!isInitialising && !isAuthenticated) {
             router.replace('/login');
         }
-    }, [isAuthenticated, router]);
+    }, [isAuthenticated, isInitialising, router]);
+
+    if (isInitialising) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-slate-50">
+                <div className="text-sm font-semibold text-slate-500">Cargando sesión...</div>
+            </div>
+        );
+    }
 
     if (!isAuthenticated) return null;
 
-    const handleLogout = () => {
-        logout();
+    const handleLogout = async () => {
+        await logout();
         router.push('/login');
     };
 

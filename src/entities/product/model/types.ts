@@ -5,12 +5,22 @@ export interface ProductSpecs {
     [key: string]: string;
 }
 
+export interface ProductQuickSpec {
+    label: string;
+    value: string;
+}
+
+export interface ProductResource {
+    label: string;
+    url: string;
+}
+
 /** Producto del catálogo de construcción. */
 export interface Product {
-    id: number;
+    id: string;
     sku: string;
     title: string;
-    categoryId: number;
+    categoryId: string;
     category: string;
     price: number;
     unit: string;
@@ -20,14 +30,30 @@ export interface Product {
     fullSpecs?: ProductSpecs;
     images: string[];
     grade?: string;
-    rating?: number;
-    reviews?: number;
     isPublished: boolean;
+    /** Si es false el precio se oculta en vistas públicas. Default true. */
+    precioVisible: boolean;
+    /* ---- Ficha Técnica (opcionales) ---- */
+    color?: string;
+    material?: string;
+    contenido?: string;       // e.g. "300", "25"
+    unidadMedida?: string;    // e.g. "ml", "kg", "gl", "lt"
+    presentacion?: string;    // e.g. "Caja 12x1/4gl", "Rollo 25ml"
+    pesoKg?: number;
+    altoMm?: number;
+    anchoMm?: number;
+    largoMm?: number;
+    /** Resumen editable por el admin (label + value) */
+    quickSpecs?: ProductQuickSpec[];
+    /** Nota técnica destacada */
+    notaTecnica?: string;
+    /** Recursos descargables */
+    recursos?: ProductResource[];
 }
 
 /** Producto relacionado (vista reducida). */
 export interface RelatedProduct {
-    id: number;
+    id: string;
     title: string;
     price: number;
     category: string;

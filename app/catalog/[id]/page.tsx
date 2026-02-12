@@ -11,8 +11,10 @@ interface ProductPageProps {
 
 export default function ProductPage({ params }: ProductPageProps) {
     const { id } = use(params);
-    const { getProduct } = useProducts();
-    const product = getProduct(Number(id));
+    const { getProduct, loading } = useProducts();
+    const product = getProduct(id);
+
+    if (loading) return null;
 
     if (!product) {
         notFound();

@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import Image from 'next/image';
 
 interface ProductGalleryProps {
     images: string[];
@@ -16,13 +15,11 @@ export default function ProductGallery({ images, title, stockLabel }: ProductGal
         <div className="space-y-4">
             {/* Imagen principal */}
             <div className="aspect-[4/3] rounded-3xl overflow-hidden bg-white border border-gray-100 group relative shadow-xl">
-                <Image
+                <img
                     src={images[activeIdx]}
                     alt={`${title} - imagen ${activeIdx + 1}`}
-                    fill
-                    className="object-cover group-hover:scale-105 transition-transform duration-1000"
-                    sizes="(max-width: 1024px) 100vw, 50vw"
-                    priority
+                    className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000"
+                    loading="eager"
                 />
                 {stockLabel && (
                     <div className="absolute top-5 left-5">
@@ -46,7 +43,12 @@ export default function ProductGallery({ images, title, stockLabel }: ProductGal
                         onClick={() => setActiveIdx(i)}
                         aria-label={`Ver imagen ${i + 1}`}
                     >
-                        <Image src={img} alt={`${title} miniatura ${i + 1}`} fill className="object-cover" sizes="100px" />
+                        <img
+                            src={img}
+                            alt={`${title} miniatura ${i + 1}`}
+                            className="absolute inset-0 w-full h-full object-cover"
+                            loading="lazy"
+                        />
                     </button>
                 ))}
             </div>

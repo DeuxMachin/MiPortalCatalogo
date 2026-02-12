@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Mail, Lock, Eye, EyeOff, ArrowRight, ShieldCheck, Package, BarChart3 } from 'lucide-react';
+import Link from 'next/link';
+import { Mail, Lock, Eye, EyeOff, ArrowRight, ArrowLeft, ShieldCheck, Package, BarChart3 } from 'lucide-react';
 import { useAuth } from '@/src/features/auth/model/AuthContext';
 import { APP_NAME } from '@/src/shared/config/constants';
 
@@ -148,13 +149,6 @@ export default function LoginForm() {
                                 <label htmlFor="password" className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
                                     Contraseña
                                 </label>
-                                <button
-                                    type="button"
-                                    className="text-xs font-semibold text-orange-500 hover:text-orange-400 transition-colors"
-                                    tabIndex={-1}
-                                >
-                                    ¿Olvidaste tu clave?
-                                </button>
                             </div>
                             <div className="relative group">
                                 <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none">
@@ -204,31 +198,15 @@ export default function LoginForm() {
                         </button>
                     </form>
 
-                    {/* Credenciales mock */}
-                    <div className="mt-8 p-4 rounded-xl bg-slate-900/50 border border-slate-800/50">
-                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">
-                            Credenciales de demostración
-                        </p>
-                        <div className="space-y-1 text-sm">
-                            <p className="text-slate-400">
-                                <span className="text-slate-500">Email:</span>{' '}
-                                <span className="text-white font-mono">admin@demo.cl</span>
-                            </p>
-                            <p className="text-slate-400">
-                                <span className="text-slate-500">Clave:</span>{' '}
-                                <span className="text-white font-mono">123456</span>
-                            </p>
-                        </div>
-                    </div>
-
-                    {/* Footer */}
+                    {/* Back to catalog */}
                     <div className="mt-8 text-center">
-                        <p className="text-slate-600 text-xs">
-                            ¿No tienes acceso?{' '}
-                            <button className="text-orange-500 hover:text-orange-400 font-semibold transition-colors">
-                                Contacta al Administrador
-                            </button>
-                        </p>
+                        <Link
+                            href="/catalog"
+                            className="text-slate-500 hover:text-orange-400 text-sm font-semibold transition-colors inline-flex items-center gap-1.5"
+                        >
+                            <ArrowLeft className="w-3.5 h-3.5" />
+                            Volver al catálogo
+                        </Link>
                     </div>
                 </div>
             </div>

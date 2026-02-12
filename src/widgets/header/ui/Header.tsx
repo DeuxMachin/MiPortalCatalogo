@@ -3,14 +3,15 @@
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { LogOut, Menu, X, ChevronDown, ChevronRight, Settings } from 'lucide-react';
+import { LogOut, Menu, X, ChevronDown, Settings, User } from 'lucide-react';
 import Logo from '@/src/shared/ui/Logo';
 import SearchBar from '@/src/features/product-search/ui/SearchBar';
 import { useAuth } from '@/src/features/auth';
-import { MOCK_CATEGORIES } from '@/src/entities/category/model/mock-data';
+import { useCategories } from '@/src/features/category-management';
 
 export default function Header() {
-    const { user, logout } = useAuth();
+    const { user, isAuthenticated, logout } = useAuth();
+    const { activeCategories } = useCategories();
     const router = useRouter();
     const [search, setSearch] = useState('');
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -20,7 +21,6 @@ export default function Header() {
 
     const isAdmin = user?.role === 'admin';
 
-    // Close dropdown on outside click
     useEffect(() => {
         const handler = (e: MouseEvent) => {
             if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
@@ -31,9 +31,9 @@ export default function Header() {
         return () => document.removeEventListener('mousedown', handler);
     }, []);
 
-    const handleLogout = () => {
-        logout();
-        router.push('/login');
+    const handleLogout = async () => {
+        await logout();
+        router.push('/catalog');
     };
 
     const navigateTo = (path: string) => {
@@ -77,22 +77,15 @@ export default function Header() {
                                             Ver todas las categorías →
                                         </button>
                                     </div>
-                                    {MOCK_CATEGORIES.map((cat) => (
+                                    {activeCategories.map((cat) => (
                                         <div key={cat.id} className="group">
                                             <button
                                                 onClick={() => navigateTo(`/catalog?cat=${cat.id}`)}
                                                 className="w-full text-left px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-orange-50 hover:text-orange-600 transition-colors flex items-center gap-3"
                                             >
-                                                <span className="text-lg">{cat.icon}</span>
                                                 <div className="flex-1 min-w-0">
-                                                    <span className="block">{cat.name}</span>
-                                                    {cat.subcategories.length > 0 && (
-                                                        <span className="text-xs text-slate-400">
-                                                            {cat.subcategories.map((s) => s.name).join(' · ')}
-                                                        </span>
-                                                    )}
+                                                    <span className="block">{cat.nombre}</span>
                                                 </div>
-                                                <span className="text-xs text-slate-300">{cat.productCount}</span>
                                             </button>
                                         </div>
                                     ))}
@@ -100,7 +93,7 @@ export default function Header() {
                             )}
                         </div>
 
-                        {/* Admin link */}
+                        {/* Admin link — only for admin users */}
                         {isAdmin && (
                             <Link
                                 href="/admin"
@@ -119,22 +112,35 @@ export default function Header() {
                 {/* User area */}
                 <div className="flex items-center gap-3">
                     <div className="h-8 w-px bg-slate-200 mx-1 hidden sm:block" />
-                    <div className="hidden sm:flex items-center gap-3">
-                        <div className="text-right">
-                            <p className="text-sm font-semibold text-slate-800 leading-none">
-                                {user?.name ?? 'Usuario'}
-                            </p>
-                            <button
-                                onClick={handleLogout}
-                                className="text-xs text-slate-400 hover:text-red-500 transition-colors flex items-center gap-1 ml-auto mt-0.5"
-                            >
-                                <LogOut className="w-3 h-3" /> Cerrar Sesión
-                            </button>
+
+                    {isAuthenticated ? (
+                        /* Logged-in user area */
+                        <div className="hidden sm:flex items-center gap-3">
+                            <div className="text-right">
+                                <p className="text-sm font-semibold text-slate-800 leading-none">
+                                    {user?.name ?? 'Usuario'}
+                                </p>
+                                <button
+                                    onClick={handleLogout}
+                                    className="text-xs text-slate-400 hover:text-red-500 transition-colors flex items-center gap-1 ml-auto mt-0.5"
+                                >
+                                    <LogOut className="w-3 h-3" /> Cerrar Sesión
+                                </button>
+                            </div>
+                            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center text-white font-bold text-sm shadow-md">
+                                {user?.name?.charAt(0) ?? 'U'}
+                            </div>
                         </div>
-                        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center text-white font-bold text-sm shadow-md">
-                            {user?.name?.charAt(0) ?? 'U'}
-                        </div>
-                    </div>
+                    ) : (
+                        /* Guest login button */
+                        <Link
+                            href="/login"
+                            className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-orange-600 text-white hover:bg-orange-700 transition-colors shadow-md shadow-orange-600/20"
+                        >
+                            <User className="w-4 h-4" />
+                            Iniciar Sesión
+                        </Link>
+                    )}
 
                     {/* Mobile menu toggle */}
                     <button
@@ -177,13 +183,13 @@ export default function Header() {
                                 >
                                     Ver todas →
                                 </Link>
-                                {MOCK_CATEGORIES.map((cat) => (
+                                {activeCategories.map((cat) => (
                                     <button
                                         key={cat.id}
                                         onClick={() => navigateTo(`/catalog?cat=${cat.id}`)}
-                                        className="w-full text-left px-3 py-2 text-sm text-slate-600 hover:text-orange-600 font-medium flex items-center gap-2"
+                                        className="w-full text-left px-3 py-2 text-sm text-slate-600 hover:text-orange-600 font-medium"
                                     >
-                                        <span>{cat.icon}</span> {cat.name}
+                                        {cat.nombre}
                                     </button>
                                 ))}
                             </div>
@@ -202,15 +208,27 @@ export default function Header() {
                     )}
 
                     <div className="pt-2 border-t border-gray-100">
-                        <div className="px-4 py-2">
-                            <p className="text-sm font-semibold text-slate-800">{user?.name ?? 'Usuario'}</p>
-                        </div>
-                        <button
-                            onClick={handleLogout}
-                            className="flex items-center gap-2 px-4 py-3 text-sm font-semibold text-red-500 hover:bg-red-50 rounded-lg w-full"
-                        >
-                            <LogOut className="w-4 h-4" /> Cerrar Sesión
-                        </button>
+                        {isAuthenticated ? (
+                            <>
+                                <div className="px-4 py-2">
+                                    <p className="text-sm font-semibold text-slate-800">{user?.name ?? 'Usuario'}</p>
+                                </div>
+                                <button
+                                    onClick={handleLogout}
+                                    className="flex items-center gap-2 px-4 py-3 text-sm font-semibold text-red-500 hover:bg-red-50 rounded-lg w-full"
+                                >
+                                    <LogOut className="w-4 h-4" /> Cerrar Sesión
+                                </button>
+                            </>
+                        ) : (
+                            <Link
+                                href="/login"
+                                className="flex items-center justify-center gap-2 mx-4 py-3 text-sm font-semibold bg-orange-600 text-white rounded-xl hover:bg-orange-700"
+                                onClick={() => setMobileMenuOpen(false)}
+                            >
+                                <User className="w-4 h-4" /> Iniciar Sesión
+                            </Link>
+                        )}
                     </div>
                 </div>
             )}

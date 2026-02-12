@@ -1,8 +1,8 @@
+
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
 import {
     ArrowLeft,
     ArrowRight,
@@ -14,20 +14,32 @@ import {
     Eye,
     Sparkles,
     ChevronRight,
+    ChevronDown,
     Clock,
     Trophy,
     ShieldCheck,
     Droplets,
     Info,
+    Download,
+    Palette,
+    Ruler,
+    Package,
+    Weight,
+    Layers,
 } from 'lucide-react';
 import { useProducts } from '@/src/features/product-management';
-import { MOCK_CATEGORIES } from '@/src/entities/category/model/mock-data';
+import { useCategories } from '@/src/features/category-management';
 import type { Product } from '@/src/entities/product/model/types';
 import type { StockStatus } from '@/src/shared/types/common';
 import { formatPrice } from '@/src/shared/lib/formatters';
 
 interface ProductFormViewProps {
     editProduct?: Product;
+}
+
+interface ResourceInput {
+    label: string;
+    url: string;
 }
 
 interface FormData {
@@ -37,14 +49,32 @@ interface FormData {
     categoryId: string;
     description: string;
     stock: StockStatus;
-    imageUrl: string;
+    images: Array<{ url: string; file: File | null }>;
     isPublished: boolean;
+    precioVisible: boolean;
     specs: { key: string; value: string }[];
+    /* Ficha Técnica (all optional) */
+    color: string;
+    material: string;
+    contenido: string;
+    unidadMedida: string;
+    presentacion: string;
+    pesoKg: string;
+    altoMm: string;
+    anchoMm: string;
+    largoMm: string;
+    quickSpecs: { label: string; value: string }[];
+    notaTecnica: string;
+    recursos: ResourceInput[];
 }
 
-const STOCK_OPTIONS: StockStatus[] = ['EN STOCK', 'A PEDIDO', 'DISPONIBLE', 'AGOTADO'];
+const UNIT_OPTIONS = ['ml', 'lt', 'gl', 'kg', 'g', 'mt', 'mm', 'cm', 'un', 'rollo', 'caja'] as const;
+
+const STOCK_OPTIONS: StockStatus[] = ['EN STOCK', 'SIN STOCK', 'A PEDIDO'];
 
 const DEFAULT_IMAGE = 'https://images.unsplash.com/photo-1504917595217-d4dc5ebe6122?auto=format&fit=crop&q=80&w=600';
+
+const QUICK_SPECS_DEFAULTS = [{ label: '', value: '' }];
 
 const QUICK_SPECS_ICONS = [
     { icon: <Clock className="w-4 h-4" />, label: 'Resistencia' },
@@ -53,8 +83,19 @@ const QUICK_SPECS_ICONS = [
     { icon: <Droplets className="w-4 h-4" />, label: 'Propiedad' },
 ];
 
+function buildQuickSpecs(product?: Product) {
+    if (!product?.quickSpecs?.length) return QUICK_SPECS_DEFAULTS;
+    return product.quickSpecs.map((s) => ({ label: s.label ?? '', value: s.value ?? '' }));
+}
+
 function buildFormData(product?: Product): FormData {
     if (product) {
+        const initialUrls = (product.images ?? []).slice(0, 4);
+        const images = Array.from({ length: 4 }).map((_, idx) => ({
+            url: initialUrls[idx] ?? '',
+            file: null,
+        }));
+
         return {
             title: product.title,
             sku: product.sku,
@@ -62,9 +103,24 @@ function buildFormData(product?: Product): FormData {
             categoryId: String(product.categoryId),
             description: product.description,
             stock: product.stock,
-            imageUrl: product.images[0] || DEFAULT_IMAGE,
+            images,
             isPublished: product.isPublished,
+            precioVisible: product.precioVisible ?? true,
             specs: Object.entries(product.fullSpecs ?? product.specs).map(([key, value]) => ({ key, value })),
+            color: product.color ?? '',
+            material: product.material ?? '',
+            contenido: product.contenido ?? '',
+            unidadMedida: product.unidadMedida ?? '',
+            presentacion: product.presentacion ?? '',
+            pesoKg: product.pesoKg != null ? String(product.pesoKg) : '',
+            altoMm: product.altoMm != null ? String(product.altoMm) : '',
+            anchoMm: product.anchoMm != null ? String(product.anchoMm) : '',
+            largoMm: product.largoMm != null ? String(product.largoMm) : '',
+            quickSpecs: buildQuickSpecs(product),
+            notaTecnica: product.notaTecnica ?? '',
+            recursos: product.recursos && product.recursos.length > 0
+                ? product.recursos.map((r) => ({ label: r.label, url: r.url }))
+                : [{ label: '', url: '' }],
         };
     }
     return {
@@ -74,25 +130,92 @@ function buildFormData(product?: Product): FormData {
         categoryId: '',
         description: '',
         stock: 'EN STOCK',
-        imageUrl: DEFAULT_IMAGE,
+        images: [
+            { url: DEFAULT_IMAGE, file: null },
+            { url: '', file: null },
+            { url: '', file: null },
+            { url: '', file: null },
+        ],
         isPublished: true,
+        precioVisible: true,
         specs: [{ key: '', value: '' }],
+        color: '',
+        material: '',
+        contenido: '',
+        unidadMedida: '',
+        presentacion: '',
+        pesoKg: '',
+        altoMm: '',
+        anchoMm: '',
+        largoMm: '',
+        quickSpecs: QUICK_SPECS_DEFAULTS,
+        notaTecnica: '',
+        recursos: [{ label: '', url: '' }],
     };
 }
 
 export default function ProductFormView({ editProduct }: ProductFormViewProps) {
     const router = useRouter();
-    const { addProduct, updateProduct } = useProducts();
+    const { addProduct, updateProduct, setProductImages } = useProducts();
     const isEditing = !!editProduct;
 
     const [form, setForm] = useState<FormData>(() => buildFormData(editProduct));
     const [mobileStep, setMobileStep] = useState<'form' | 'preview'>('form');
     const [saved, setSaved] = useState(false);
+    const [fichaOpen, setFichaOpen] = useState(false);
+    const [saveError, setSaveError] = useState<string | null>(null);
+    const [saving, setSaving] = useState(false);
 
-    const categoryName = MOCK_CATEGORIES.find((c) => c.id === Number(form.categoryId))?.name ?? '';
+    const { categories } = useCategories();
+    const categoryName = categories.find((c) => c.id === form.categoryId)?.nombre ?? '';
 
     const updateField = (field: keyof FormData, value: string | boolean) => {
         setForm((prev) => ({ ...prev, [field]: value }));
+    };
+
+    const [imagePreviews, setImagePreviews] = useState<string[]>(() =>
+        (buildFormData(editProduct).images ?? []).map((s) => s.url || ''),
+    );
+
+    // Cleanup blob URLs
+    useEffect(() => {
+        return () => {
+            imagePreviews.forEach((p) => {
+                if (p?.startsWith('blob:')) URL.revokeObjectURL(p);
+            });
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    const updateImageUrl = (index: number, url: string) => {
+        setForm((prev) => {
+            const images = [...prev.images];
+            images[index] = { ...images[index], url, file: null };
+            return { ...prev, images };
+        });
+        setImagePreviews((prev) => {
+            const next = [...prev];
+            const old = next[index];
+            if (old?.startsWith('blob:')) URL.revokeObjectURL(old);
+            next[index] = url;
+            return next;
+        });
+    };
+
+    const updateImageFile = (index: number, file: File | null) => {
+        setForm((prev) => {
+            const images = [...prev.images];
+            const prevUrl = images[index]?.url ?? '';
+            images[index] = { ...images[index], file, url: file ? '' : prevUrl };
+            return { ...prev, images };
+        });
+        setImagePreviews((prev) => {
+            const next = [...prev];
+            const old = next[index];
+            if (old?.startsWith('blob:')) URL.revokeObjectURL(old);
+            next[index] = file ? URL.createObjectURL(file) : '';
+            return next;
+        });
     };
 
     const updateSpec = (index: number, field: 'key' | 'value', value: string) => {
@@ -103,6 +226,44 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
         });
     };
 
+    const updateQuickSpec = (index: number, field: 'label' | 'value', value: string) => {
+        setForm((prev) => {
+            const quickSpecs = [...prev.quickSpecs];
+            quickSpecs[index] = { ...quickSpecs[index], [field]: value };
+            return { ...prev, quickSpecs };
+        });
+    };
+
+    const addQuickSpec = () => {
+        setForm((prev) => ({ ...prev, quickSpecs: [...prev.quickSpecs, { label: '', value: '' }] }));
+    };
+
+    const removeQuickSpec = (index: number) => {
+        setForm((prev) => ({
+            ...prev,
+            quickSpecs: prev.quickSpecs.filter((_, i) => i !== index),
+        }));
+    };
+
+    const updateResource = (index: number, field: keyof ResourceInput, value: string) => {
+        setForm((prev) => {
+            const recursos = [...prev.recursos];
+            recursos[index] = { ...recursos[index], [field]: value };
+            return { ...prev, recursos };
+        });
+    };
+
+    const addResource = () => {
+        setForm((prev) => ({ ...prev, recursos: [...prev.recursos, { label: '', url: '' }] }));
+    };
+
+    const removeResource = (index: number) => {
+        setForm((prev) => ({
+            ...prev,
+            recursos: prev.recursos.filter((_, i) => i !== index),
+        }));
+    };
+
     const addSpec = () => {
         setForm((prev) => ({ ...prev, specs: [...prev.specs, { key: '', value: '' }] }));
     };
@@ -111,39 +272,94 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
         setForm((prev) => ({ ...prev, specs: prev.specs.filter((_, i) => i !== index) }));
     };
 
-    const handleSave = () => {
+    const handleSave = async () => {
+        setSaveError(null);
+        if (saving) return;
+
+        const catId = form.categoryId || '';
+        if (!catId.trim()) {
+            setSaveError('Selecciona una categoría antes de guardar.');
+            return;
+        }
+
+        setSaving(true);
         const price = Number(form.price) || 0;
-        const catId = Number(form.categoryId) || 1;
         const specsObj: Record<string, string> = {};
         form.specs.forEach((s) => {
             if (s.key.trim()) specsObj[s.key.trim()] = s.value.trim();
         });
 
-        const productData = {
-            title: form.title || 'Producto Sin Nombre',
-            sku: form.sku || `SKU-${Date.now()}`,
-            price,
-            categoryId: catId,
-            category: categoryName || 'Sin Categoría',
-            description: form.description,
-            stock: form.stock,
-            unit: 'CLP' as const,
-            images: [form.imageUrl || DEFAULT_IMAGE],
-            specs: specsObj,
-            fullSpecs: specsObj,
-            isPublished: form.isPublished,
-            rating: 0,
-            reviews: 0,
-        };
+        const quickSpecs = form.quickSpecs
+            .map((s) => ({ label: s.label.trim(), value: s.value.trim() }))
+            .filter((s) => s.label && s.value);
 
-        if (isEditing && editProduct) {
-            updateProduct(editProduct.id, productData);
-        } else {
-            addProduct(productData as Omit<Product, 'id'>);
+        const recursos = form.recursos
+            .map((r) => ({ label: r.label.trim(), url: r.url.trim() }))
+            .filter((r) => r.label && r.url);
+
+        try {
+            const baseData = {
+                title: form.title || 'Producto Sin Nombre',
+                sku: form.sku || `SKU-${Date.now()}`,
+                price,
+                categoryId: catId,
+                category: categoryName || 'Sin Categoría',
+                description: form.description,
+                stock: form.stock,
+                unit: 'CLP',
+                specs: specsObj,
+                fullSpecs: specsObj,
+                isPublished: form.isPublished,
+                precioVisible: form.precioVisible,
+                quickSpecs,
+                notaTecnica: form.notaTecnica,
+                recursos,
+                /* Ficha Técnica */
+                ...(form.color && { color: form.color }),
+                ...(form.material && { material: form.material }),
+                ...(form.contenido && { contenido: form.contenido }),
+                ...(form.unidadMedida && { unidadMedida: form.unidadMedida }),
+                ...(form.presentacion && { presentacion: form.presentacion }),
+                ...(form.pesoKg && { pesoKg: Number(form.pesoKg) }),
+                ...(form.altoMm && { altoMm: Number(form.altoMm) }),
+                ...(form.anchoMm && { anchoMm: Number(form.anchoMm) }),
+                ...(form.largoMm && { largoMm: Number(form.largoMm) }),
+            };
+
+            const imageInputs = form.images
+                .map((s) => s.file ?? s.url?.trim())
+                .filter((v) => !!v) as Array<File | string>;
+
+            const originalUrls = (editProduct?.images ?? []).slice(0, 4);
+            const currentUrls = form.images.map((s) => s.file ? '__file__' : (s.url?.trim() ?? '')).slice(0, 4);
+            const imagesChanged = form.images.some((s, idx) => !!s.file) ||
+                currentUrls.some((u, idx) => u !== (originalUrls[idx] ?? ''));
+
+            const result = isEditing && editProduct
+                ? await updateProduct(editProduct.id, baseData)
+                : await addProduct({ ...baseData, images: [] }, imageInputs);
+
+            if (result.success && isEditing && editProduct && imagesChanged) {
+                const imgRes = await setProductImages(editProduct.id, imageInputs);
+                if (!imgRes.success) {
+                    setSaveError(imgRes.error ?? 'No se pudieron guardar las imágenes.');
+                    return;
+                }
+            }
+
+            if (result.success) {
+                setSaved(true);
+                router.push(isEditing ? '/admin?toast=updated' : '/admin?toast=created');
+                return;
+            }
+
+            setSaveError(result.error ?? 'No se pudo guardar el producto.');
+        } catch (err) {
+            console.error('[ProductForm] Save error:', err);
+            setSaveError('Ocurrió un error inesperado al guardar.');
+        } finally {
+            setSaving(false);
         }
-
-        setSaved(true);
-        setTimeout(() => router.push('/admin'), 800);
     };
 
     const filledSpecs = form.specs.filter((s) => s.key.trim());
@@ -203,9 +419,9 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
                                 className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent appearance-none bg-white"
                             >
                                 <option value="">Seleccionar...</option>
-                                {MOCK_CATEGORIES.map((cat) => (
+                                {categories.map((cat) => (
                                     <option key={cat.id} value={cat.id}>
-                                        {cat.name}
+                                        {cat.nombre}
                                     </option>
                                 ))}
                             </select>
@@ -225,7 +441,7 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
                                 ))}
                             </select>
                         </div>
-                        <div className="flex items-end">
+                        <div className="flex items-end gap-6">
                             <label className="flex items-center gap-3 cursor-pointer py-3">
                                 <input
                                     type="checkbox"
@@ -234,6 +450,15 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
                                     className="w-4 h-4 rounded text-orange-600 focus:ring-orange-500"
                                 />
                                 <span className="text-sm font-semibold text-slate-600">Publicado</span>
+                            </label>
+                            <label className="flex items-center gap-3 cursor-pointer py-3">
+                                <input
+                                    type="checkbox"
+                                    checked={form.precioVisible}
+                                    onChange={(e) => updateField('precioVisible', e.target.checked)}
+                                    className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500"
+                                />
+                                <span className="text-sm font-semibold text-slate-600">Precio visible</span>
                             </label>
                         </div>
                     </div>
@@ -251,29 +476,197 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
                 </div>
             </div>
 
-            {/* Image */}
+            {/* Imágenes */}
             <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
                 <div className="px-6 py-4 border-b border-gray-100 bg-slate-50/50">
                     <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                        <Upload className="w-4 h-4 text-orange-500" /> Imagen del Producto
+                        <Upload className="w-4 h-4 text-orange-500" /> Imágenes del Producto (hasta 4)
                     </h3>
                 </div>
                 <div className="p-6">
-                    <label className="block text-sm font-semibold text-slate-600 mb-1.5">URL de la imagen</label>
-                    <input
-                        type="text"
-                        value={form.imageUrl}
-                        onChange={(e) => updateField('imageUrl', e.target.value)}
-                        placeholder="https://..."
-                        className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                    />
-                    <p className="text-xs text-slate-400 mt-1.5">Pega la URL de una imagen. En el futuro se podrá subir directamente.</p>
-                    {form.imageUrl && (
-                        <div className="mt-4 aspect-video relative rounded-xl overflow-hidden bg-slate-100 border border-gray-200">
-                            <Image src={form.imageUrl} alt="Preview" fill className="object-cover" sizes="400px" />
-                        </div>
-                    )}
+                    <p className="text-xs text-slate-400 mb-4">
+                        Puedes pegar un link o subir una imagen desde tu equipo. Se optimiza a WebP y se guarda en Supabase Storage.
+                    </p>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        {form.images.map((slot, idx) => (
+                            <div key={idx} className="border border-gray-200 rounded-2xl p-4 bg-white">
+                                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Imagen {idx + 1}</p>
+
+                                <div className="aspect-video rounded-xl overflow-hidden bg-slate-100 border border-gray-200 relative mb-3">
+                                    <img
+                                        src={imagePreviews[idx] || DEFAULT_IMAGE}
+                                        alt={`Preview imagen ${idx + 1}`}
+                                        className="absolute inset-0 w-full h-full object-cover"
+                                        loading="lazy"
+                                    />
+                                </div>
+
+                                <label className="block text-xs font-semibold text-slate-500 mb-1">Link (opcional)</label>
+                                <input
+                                    type="url"
+                                    value={slot.url}
+                                    onChange={(e) => updateImageUrl(idx, e.target.value)}
+                                    placeholder="https://..."
+                                    className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                />
+
+                                <div className="mt-3">
+                                    <label className="block text-xs font-semibold text-slate-500 mb-1">Subir archivo (opcional)</label>
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={(e) => updateImageFile(idx, e.target.files?.[0] ?? null)}
+                                        className="block w-full text-sm text-slate-600 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-slate-100 file:text-slate-700 file:font-semibold hover:file:bg-slate-200"
+                                    />
+                                    {slot.file && (
+                                        <p className="mt-1 text-[11px] text-slate-400 truncate">
+                                            Archivo: {slot.file.name}
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
                 </div>
+            </div>
+
+            {/* Ficha Técnica — Collapsible */}
+            <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
+                <button
+                    type="button"
+                    onClick={() => setFichaOpen(!fichaOpen)}
+                    className="w-full px-6 py-4 border-b border-gray-100 bg-slate-50/50 flex items-center justify-between"
+                >
+                    <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                        <Layers className="w-4 h-4 text-orange-500" /> Ficha Técnica
+                        <span className="text-xs font-normal text-slate-400">(opcional)</span>
+                    </h3>
+                    <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${fichaOpen ? 'rotate-180' : ''}`} />
+                </button>
+                {fichaOpen && (
+                    <div className="p-6 space-y-4">
+                        {/* Color + Material */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-600 mb-1.5 flex items-center gap-1.5">
+                                    <Palette className="w-3.5 h-3.5 text-slate-400" /> Color
+                                </label>
+                                <input
+                                    type="text"
+                                    value={form.color}
+                                    onChange={(e) => updateField('color', e.target.value)}
+                                    placeholder="Ej: Blanco, Transparente"
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-600 mb-1.5 flex items-center gap-1.5">
+                                    <Layers className="w-3.5 h-3.5 text-slate-400" /> Material
+                                </label>
+                                <input
+                                    type="text"
+                                    value={form.material}
+                                    onChange={(e) => updateField('material', e.target.value)}
+                                    placeholder="Ej: Acrílico, Poliuretano"
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Contenido + Unidad */}
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-600 mb-1.5">Contenido</label>
+                                <input
+                                    type="text"
+                                    value={form.contenido}
+                                    onChange={(e) => updateField('contenido', e.target.value)}
+                                    placeholder="Ej: 300, 25, 1/4"
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-600 mb-1.5">Unidad</label>
+                                <select
+                                    value={form.unidadMedida}
+                                    onChange={(e) => updateField('unidadMedida', e.target.value)}
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent appearance-none bg-white"
+                                >
+                                    <option value="">—</option>
+                                    {UNIT_OPTIONS.map((u) => (
+                                        <option key={u} value={u}>{u}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="col-span-2 sm:col-span-1">
+                                <label className="block text-sm font-semibold text-slate-600 mb-1.5 flex items-center gap-1.5">
+                                    <Package className="w-3.5 h-3.5 text-slate-400" /> Presentación
+                                </label>
+                                <input
+                                    type="text"
+                                    value={form.presentacion}
+                                    onChange={(e) => updateField('presentacion', e.target.value)}
+                                    placeholder="Ej: Caja 12x1/4gl"
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Peso + Dimensiones */}
+                        <div className="pt-3 border-t border-gray-100">
+                            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                                <Ruler className="w-3.5 h-3.5" /> Dimensiones y Peso
+                            </p>
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                <div>
+                                    <label className="block text-xs font-semibold text-slate-500 mb-1">Peso (kg)</label>
+                                    <div className="relative">
+                                        <input
+                                            type="number"
+                                            step="0.01"
+                                            value={form.pesoKg}
+                                            onChange={(e) => updateField('pesoKg', e.target.value)}
+                                            placeholder="0.5"
+                                            className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                        />
+                                        <Weight className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-300" />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-semibold text-slate-500 mb-1">Alto (mm)</label>
+                                    <input
+                                        type="number"
+                                        value={form.altoMm}
+                                        onChange={(e) => updateField('altoMm', e.target.value)}
+                                        placeholder="200"
+                                        className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-semibold text-slate-500 mb-1">Ancho (mm)</label>
+                                    <input
+                                        type="number"
+                                        value={form.anchoMm}
+                                        onChange={(e) => updateField('anchoMm', e.target.value)}
+                                        placeholder="50"
+                                        className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-semibold text-slate-500 mb-1">Largo (mm)</label>
+                                    <input
+                                        type="number"
+                                        value={form.largoMm}
+                                        onChange={(e) => updateField('largoMm', e.target.value)}
+                                        placeholder="300"
+                                        className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Specs */}
@@ -319,6 +712,112 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
                     </button>
                 </div>
             </div>
+
+            {/* Detalle avanzado */}
+            <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
+                <div className="px-6 py-4 border-b border-gray-100 bg-slate-50/50">
+                    <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                        <Info className="w-4 h-4 text-orange-500" /> Detalle Avanzado
+                    </h3>
+                </div>
+                <div className="p-6 space-y-6">
+                    {/* Quick specs */}
+                    <div>
+                        <div className="flex items-center justify-between mb-3">
+                            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Resumen rápido</p>
+                            <button
+                                type="button"
+                                onClick={addQuickSpec}
+                                className="text-xs font-semibold text-orange-600 hover:text-orange-700"
+                            >
+                                + Añadir
+                            </button>
+                        </div>
+                        <div className="space-y-3">
+                            {form.quickSpecs.map((spec, i) => (
+                                <div key={i} className="grid grid-cols-1 sm:grid-cols-[1fr_1.5fr_auto] gap-2 items-center">
+                                    <input
+                                        type="text"
+                                        value={spec.label}
+                                        onChange={(e) => updateQuickSpec(i, 'label', e.target.value)}
+                                        placeholder="Etiqueta (ej: Resistencia)"
+                                        className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                    />
+                                    <input
+                                        type="text"
+                                        value={spec.value}
+                                        onChange={(e) => updateQuickSpec(i, 'value', e.target.value)}
+                                        placeholder="Valor (ej: Alta / Industrial)"
+                                        className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => removeQuickSpec(i)}
+                                        className="text-slate-300 hover:text-red-500 transition-colors p-1"
+                                        disabled={form.quickSpecs.length <= 1}
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Nota técnica */}
+                    <div>
+                        <label className="block text-sm font-semibold text-slate-600 mb-1.5">Nota Técnica</label>
+                        <textarea
+                            value={form.notaTecnica}
+                            onChange={(e) => updateField('notaTecnica', e.target.value)}
+                            placeholder="Ej: Este material presenta el mejor balance costo-beneficio..."
+                            rows={3}
+                            className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent resize-none"
+                        />
+                    </div>
+
+                    {/* Recursos descargables */}
+                    <div>
+                        <div className="flex items-center justify-between mb-3">
+                            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Recursos descargables</p>
+                            <button
+                                type="button"
+                                onClick={addResource}
+                                className="text-xs font-semibold text-orange-600 hover:text-orange-700"
+                            >
+                                + Añadir recurso
+                            </button>
+                        </div>
+                        <div className="space-y-3">
+                            {form.recursos.map((res, i) => (
+                                <div key={i} className="grid grid-cols-1 sm:grid-cols-[1fr_1.5fr_auto] gap-2 items-center">
+                                    <input
+                                        type="text"
+                                        value={res.label}
+                                        onChange={(e) => updateResource(i, 'label', e.target.value)}
+                                        placeholder="Nombre del recurso"
+                                        className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                    />
+                                    <input
+                                        type="url"
+                                        value={res.url}
+                                        onChange={(e) => updateResource(i, 'url', e.target.value)}
+                                        placeholder="https://..."
+                                        className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => removeResource(i)}
+                                        className="text-slate-300 hover:text-red-500 transition-colors p-1"
+                                        disabled={form.recursos.length <= 1}
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     );
 
@@ -336,8 +835,8 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
             <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-md">
                 {/* Product Image */}
                 <div className="aspect-[16/9] bg-slate-100 relative overflow-hidden">
-                    {form.imageUrl ? (
-                        <Image src={form.imageUrl} alt="Preview" fill className="object-cover" sizes="500px" />
+                    {imagePreviews[0] ? (
+                        <img src={imagePreviews[0]} alt="Preview" className="absolute inset-0 w-full h-full object-cover" />
                     ) : (
                         <div className="flex items-center justify-center h-full text-slate-300">
                             <Upload className="w-10 h-10" />
@@ -349,11 +848,11 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
                         </div>
                     )}
                     {form.stock && (
-                        <div className={`absolute top-3 right-3 text-xs font-bold px-2.5 py-1 rounded-lg shadow ${form.stock === 'EN STOCK' || form.stock === 'DISPONIBLE'
-                                ? 'bg-emerald-500 text-white'
-                                : form.stock === 'A PEDIDO'
-                                    ? 'bg-blue-500 text-white'
-                                    : 'bg-orange-500 text-white'
+                        <div className={`absolute top-3 right-3 text-xs font-bold px-2.5 py-1 rounded-lg shadow ${form.stock === 'EN STOCK'
+                            ? 'bg-emerald-500 text-white'
+                            : form.stock === 'A PEDIDO'
+                                ? 'bg-blue-500 text-white'
+                                : 'bg-red-500 text-white'
                             }`}>
                             {form.stock}
                         </div>
@@ -378,38 +877,39 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
                         {form.title || 'Nombre del Producto'}
                     </h3>
 
-                    {/* Rating */}
-                    <div className="flex items-center gap-1 mb-4">
-                        {Array.from({ length: 5 }).map((_, i) => (
-                            <Star key={i} className="w-3.5 h-3.5 text-orange-400 fill-current" />
-                        ))}
-                        <span className="text-xs text-slate-400 ml-1">(0 reseñas)</span>
-                    </div>
+
 
                     {/* Price card */}
-                    <div className="bg-slate-50 border border-gray-100 rounded-xl p-4 mb-4 relative overflow-hidden">
-                        <div className="absolute top-0 right-0 w-16 h-16 bg-orange-600/5 rounded-full -mr-8 -mt-8" />
-                        <div className="flex items-baseline gap-2 mb-1">
-                            <span className="text-2xl font-extrabold text-slate-900 tracking-tight">
-                                ${form.price ? formatPrice(Number(form.price)) : '0'}
-                            </span>
-                            <span className="text-sm font-semibold text-slate-400">Neto</span>
+                    {form.precioVisible ? (
+                        <div className="bg-slate-50 border border-gray-100 rounded-xl p-4 mb-4 relative overflow-hidden">
+                            <div className="absolute top-0 right-0 w-16 h-16 bg-orange-600/5 rounded-full -mr-8 -mt-8" />
+                            <div className="flex items-baseline gap-2 mb-1">
+                                <span className="text-2xl font-extrabold text-slate-900 tracking-tight">
+                                    ${form.price ? formatPrice(Number(form.price)) : '0'}
+                                </span>
+                                <span className="text-sm font-semibold text-slate-400">Neto</span>
+                            </div>
+                            <p className="text-xs text-slate-400 font-medium flex items-center gap-1">
+                                <Info className="w-3 h-3" /> Valores sujetos a variación por volumen
+                            </p>
                         </div>
-                        <p className="text-xs text-slate-400 font-medium flex items-center gap-1">
-                            <Info className="w-3 h-3" /> Valores sujetos a variación por volumen
-                        </p>
-                    </div>
+                    ) : (
+                        <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 mb-4 text-center">
+                            <p className="text-sm font-bold text-orange-700">Precio bajo consulta</p>
+                            <p className="text-[11px] text-orange-500 mt-0.5">El precio no será visible para el usuario</p>
+                        </div>
+                    )}
 
                     {/* Quick specs grid */}
-                    {filledSpecs.length > 0 && (
+                    {form.quickSpecs.some((s) => s.value.trim()) && (
                         <div className="grid grid-cols-2 gap-2 mb-4">
-                            {filledSpecs.slice(0, 4).map((s, i) => (
-                                <div key={i} className="bg-slate-50 border border-slate-100 rounded-lg p-3 flex items-center gap-2">
+                            {form.quickSpecs.filter((s) => s.value.trim()).slice(0, 4).map((s, i) => (
+                                <div key={s.label} className="bg-slate-50 border border-slate-100 rounded-lg p-3 flex items-center gap-2">
                                     <div className="bg-white p-1.5 rounded-md text-orange-500 shadow-sm">
                                         {QUICK_SPECS_ICONS[i % QUICK_SPECS_ICONS.length].icon}
                                     </div>
                                     <div className="min-w-0">
-                                        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide truncate">{s.key}</p>
+                                        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide truncate">{s.label}</p>
                                         <p className="text-xs font-bold text-slate-800 truncate">{s.value}</p>
                                     </div>
                                 </div>
@@ -422,18 +922,55 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
                         {form.description || 'La descripción del producto aparecerá aquí...'}
                     </p>
 
-                    {/* Specs table */}
-                    {filledSpecs.length > 0 && (
-                        <div className="border border-gray-100 rounded-xl overflow-hidden mb-4">
-                            <div className="px-4 py-2 bg-slate-50 border-b border-gray-100">
-                                <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Ficha Técnica</p>
-                            </div>
-                            {filledSpecs.map((s, idx) => (
-                                <div key={idx} className={`flex px-4 py-2.5 text-xs ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'}`}>
-                                    <span className="w-28 font-semibold text-slate-400 flex-shrink-0 truncate">{s.key}</span>
-                                    <span className="font-semibold text-slate-800 truncate">{s.value}</span>
+                    {/* Specs table + Ficha Técnica merged */}
+                    {(() => {
+                        const rows: { key: string; value: string }[] = [];
+                        if (form.color) rows.push({ key: 'Color', value: form.color });
+                        if (form.material) rows.push({ key: 'Material', value: form.material });
+                        if (form.contenido) rows.push({ key: 'Contenido', value: `${form.contenido}${form.unidadMedida ? ' ' + form.unidadMedida : ''}` });
+                        if (form.presentacion) rows.push({ key: 'Presentación', value: form.presentacion });
+                        if (form.pesoKg) rows.push({ key: 'Peso', value: `${form.pesoKg} kg` });
+                        const dims = [form.altoMm && `${form.altoMm}mm`, form.anchoMm && `${form.anchoMm}mm`, form.largoMm && `${form.largoMm}mm`].filter(Boolean).join(' × ');
+                        if (dims) rows.push({ key: 'Dimensiones', value: dims });
+                        filledSpecs.forEach(s => rows.push(s));
+
+                        return rows.length > 0 ? (
+                            <div className="border border-gray-100 rounded-xl overflow-hidden mb-4">
+                                <div className="px-4 py-2 bg-slate-50 border-b border-gray-100">
+                                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Ficha Técnica</p>
                                 </div>
-                            ))}
+                                {rows.map((s, idx) => (
+                                    <div key={idx} className={`flex px-4 py-2.5 text-xs ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'}`}>
+                                        <span className="w-28 font-semibold text-slate-400 flex-shrink-0 truncate">{s.key}</span>
+                                        <span className="font-semibold text-slate-800 truncate">{s.value}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : null;
+                    })()}
+
+                    {(form.notaTecnica || form.recursos.some((r) => r.label && r.url)) && (
+                        <div className="mt-4 space-y-3">
+                            {form.notaTecnica && (
+                                <div className="bg-orange-50 border border-orange-100 rounded-xl p-3">
+                                    <p className="text-xs font-bold text-orange-700 uppercase tracking-wide mb-1">Nota Técnica</p>
+                                    <p className="text-xs text-orange-800 leading-relaxed line-clamp-3">
+                                        {form.notaTecnica}
+                                    </p>
+                                </div>
+                            )}
+                            {form.recursos.some((r) => r.label && r.url) && (
+                                <div className="bg-white border border-gray-100 rounded-xl p-3">
+                                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">Recursos</p>
+                                    <div className="space-y-1">
+                                        {form.recursos.filter((r) => r.label && r.url).slice(0, 2).map((r, idx) => (
+                                            <div key={`${r.label}-${idx}`} className="flex items-center gap-2 text-xs text-slate-600">
+                                                <Download className="w-3 h-3 text-orange-500" /> {r.label}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -501,13 +1038,20 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
                     {/* Desktop save button */}
                     <button
                         onClick={handleSave}
-                        className="hidden lg:flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white font-semibold px-5 py-2.5 rounded-xl transition-colors shadow-lg shadow-orange-600/20 text-sm active:scale-95"
+                        disabled={saving}
+                        className={`hidden lg:flex items-center gap-2 bg-orange-600 hover:bg-orange-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold px-5 py-2.5 rounded-xl transition-colors shadow-lg shadow-orange-600/20 text-sm active:scale-95`}
                     >
                         <Save className="w-4 h-4" />
-                        {isEditing ? 'Guardar Cambios' : 'Guardar Producto'}
+                        {saving ? 'Guardando...' : (isEditing ? 'Guardar Cambios' : 'Guardar Producto')}
                     </button>
                 </div>
             </div>
+
+            {saveError && (
+                <div className="mb-6 bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm font-semibold">
+                    {saveError}
+                </div>
+            )}
 
             {/* Desktop: split panel */}
             <div className="hidden lg:grid lg:grid-cols-5 gap-8">
@@ -555,10 +1099,11 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
                         <div className="mt-6 space-y-3">
                             <button
                                 onClick={handleSave}
-                                className="w-full flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-700 text-white font-semibold py-3.5 rounded-xl text-sm shadow-lg shadow-orange-600/20 active:scale-95 transition-all"
+                                disabled={saving}
+                                className="w-full flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold py-3.5 rounded-xl text-sm shadow-lg shadow-orange-600/20 active:scale-95 transition-all"
                             >
                                 <Save className="w-4 h-4" />
-                                {isEditing ? 'Guardar Cambios' : 'Guardar Producto'}
+                                {saving ? 'Guardando...' : (isEditing ? 'Guardar Cambios' : 'Guardar Producto')}
                             </button>
                             <button
                                 onClick={() => setMobileStep('form')}
