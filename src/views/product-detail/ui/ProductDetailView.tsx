@@ -10,10 +10,14 @@ import {
     Info,
     Download,
     ArrowRight,
+    PackageCheck,
+    Sparkles,
 } from 'lucide-react';
 import ProductGallery from '@/src/widgets/product-gallery/ui/ProductGallery';
+import RelatedProductsCarousel from '@/src/widgets/related-products-carousel/ui/RelatedProductsCarousel';
 import type { Product } from '@/src/entities/product/model/types';
 import { formatPrice } from '@/src/shared/lib/formatters';
+import { useProducts } from '@/src/features/product-management';
 
 interface ProductDetailViewProps {
     product: Product;
@@ -28,7 +32,9 @@ const QUICK_SPECS_ICONS = {
 
 export default function ProductDetailView({ product }: ProductDetailViewProps) {
     const router = useRouter();
+    const { getRelatedProducts } = useProducts();
     const quickSpecs = (product.quickSpecs ?? []).filter((s) => s.value?.trim());
+    const relatedProducts = getRelatedProducts(product.id, 20);
 
     return (
         <div>
@@ -129,86 +135,148 @@ export default function ProductDetailView({ product }: ProductDetailViewProps) {
             </div>
 
             {/* Especificaciones Técnicas */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 mb-16">
-                <div className="lg:col-span-2">
-                    <h2 className="text-xl font-extrabold text-slate-900 mb-5">Ficha Técnica</h2>
+            <div className="bg-white rounded-3xl overflow-hidden mb-16 shadow-lg border border-gray-200">
+                {/* Header con diseño suave */}
+                <div className="bg-gradient-to-r from-orange-50 to-orange-100 px-8 py-6 border-b border-orange-200">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-orange-600 rounded-xl flex items-center justify-center shadow-sm">
+                            <PackageCheck className="w-6 h-6 text-white" />
+                        </div>
+                        <div>
+                            <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">
+                                Ficha Técnica Completa
+                            </h2>
+                            <p className="text-slate-600 text-sm font-medium">
+                                Especificaciones detalladas del producto
+                            </p>
+                        </div>
+                    </div>
+                </div>
 
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 p-8">
+                    <div className="lg:col-span-2 space-y-6">
                         {/* Structured technical spec cards */}
                         {(() => {
-                            const cards: { label: string; value: string }[] = [];
-                            if (product.color) cards.push({ label: 'Color', value: product.color });
-                            if (product.material) cards.push({ label: 'Material', value: product.material });
-                            if (product.contenido) cards.push({ label: 'Contenido', value: `${product.contenido}${product.unidadMedida ? ' ' + product.unidadMedida : ''}` });
+                            const cards: { label: string; value: string; icon?: React.ReactNode }[] = [];
+                            if (product.color) cards.push({ label: 'Color', value: product.color, icon: <Sparkles className="w-4 h-4" /> });
+                            if (product.material) cards.push({ label: 'Material', value: product.material, icon: <PackageCheck className="w-4 h-4" /> });
+                            if (product.contenido) cards.push({ label: 'Contenido', value: `${product.contenido}${product.unidadMedida ? ' ' + product.unidadMedida : ''}`, icon: <Info className="w-4 h-4" /> });
                             if (product.presentacion) cards.push({ label: 'Presentación', value: product.presentacion });
                             if (product.pesoKg != null) cards.push({ label: 'Peso', value: `${product.pesoKg} kg` });
                             const dims = [product.altoMm && `${product.altoMm}mm`, product.anchoMm && `${product.anchoMm}mm`, product.largoMm && `${product.largoMm}mm`].filter(Boolean).join(' × ');
                             if (dims) cards.push({ label: 'Dimensiones', value: dims });
 
                             return cards.length > 0 ? (
-                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
                                     {cards.map((c) => (
-                                        <div key={c.label} className="bg-slate-50 border border-slate-100 rounded-xl p-4 group hover:bg-white hover:border-orange-200 transition-all">
-                                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">{c.label}</p>
-                                            <p className="text-sm font-bold text-slate-900">{c.value}</p>
+                                        <div key={c.label} className="bg-slate-50 border border-slate-200 rounded-xl p-4 
+                                            group hover:bg-white hover:border-orange-300 transition-all hover:shadow-md">
+                                            {c.icon && (
+                                                <div className="mb-2 text-orange-600">
+                                                    {c.icon}
+                                                </div>
+                                            )}
+                                            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
+                                                {c.label}
+                                            </p>
+                                            <p className="text-sm font-bold text-slate-900">
+                                                {c.value}
+                                            </p>
                                         </div>
                                     ))}
                                 </div>
                             ) : null;
                         })()}
 
-                        {/* Full specs table */}
-                        <div className="bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-md">
+                        {/* Full specs table con diseño mejorado */}
+                        <div className="bg-white rounded-2xl overflow-hidden border border-gray-200 shadow-sm">
+                            <div className="bg-slate-50 px-6 py-4 border-b border-gray-200">
+                                <h3 className="text-sm font-bold text-orange-600 uppercase tracking-wider flex items-center gap-2">
+                                    <Info className="w-4 h-4" />
+                                    Especificaciones Detalladas
+                                </h3>
+                            </div>
                             {Object.entries(product.fullSpecs ?? product.specs).map(([key, val], idx) => (
                                 <div
                                     key={key}
-                                    className={`flex py-4 px-6 ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'}`}
+                                    className={`flex py-4 px-6 ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'} 
+                                        hover:bg-orange-50 transition-colors border-b border-gray-100 last:border-b-0`}
                                 >
-                                    <span className="w-44 text-sm font-semibold text-slate-400">{key}</span>
-                                    <span className="text-sm font-semibold text-slate-900">{val}</span>
+                                    <span className="w-44 text-sm font-semibold text-slate-500 flex items-center gap-2">
+                                        <span className="w-1.5 h-1.5 bg-orange-500 rounded-full" />
+                                        {key}
+                                    </span>
+                                    <span className="text-sm font-semibold text-slate-900 flex-1">
+                                        {val}
+                                    </span>
                                 </div>
                             ))}
                         </div>
-                </div>
-                <div className="space-y-6">
-                    {product.notaTecnica && (
-                        <div className="bg-orange-600 rounded-2xl p-6 text-white relative overflow-hidden shadow-lg">
-                            <div className="absolute -bottom-4 -right-4 opacity-10">
-                                <Info className="w-28 h-28" />
-                            </div>
-                            <p className="text-xs font-semibold uppercase tracking-wider mb-3 opacity-80">Nota Técnica</p>
-                            <p className="text-base font-medium leading-relaxed italic whitespace-pre-line">
-                                {product.notaTecnica}
-                            </p>
-                        </div>
-                    )}
-                    {product.recursos && product.recursos.length > 0 && (
-                        <div>
-                            <h2 className="text-sm font-bold text-slate-500 uppercase tracking-wide mb-4">
-                                Recursos Descargables
-                            </h2>
-                            <div className="space-y-3">
-                                {product.recursos.map((doc, idx) => (
-                                    <a
-                                        key={`${doc.label}-${idx}`}
-                                        href={doc.url}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="w-full flex items-center justify-between p-4 bg-white border border-slate-100 rounded-xl hover:border-orange-400 transition-all group shadow-sm"
-                                    >
-                                        <div className="flex items-center gap-3">
-                                            <div className="bg-orange-50 text-orange-600 p-2 rounded-lg shadow-sm">
-                                                <Download className="w-4 h-4" />
-                                            </div>
-                                            <span className="text-sm font-semibold text-slate-700">{doc.label}</span>
+                    </div>
+
+                    {/* Sidebar */}
+                    <div className="space-y-6">
+                        {product.notaTecnica && (
+                            <div className="bg-orange-600 rounded-2xl p-6 text-white relative overflow-hidden shadow-lg">
+                                <div className="absolute -bottom-4 -right-4 opacity-10">
+                                    <Info className="w-28 h-28" />
+                                </div>
+                                <div className="relative z-10">
+                                    <div className="flex items-center gap-2 mb-4">
+                                        <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+                                            <Info className="w-5 h-5" />
                                         </div>
-                                        <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-orange-600 group-hover:translate-x-1 transition-all" />
-                                    </a>
-                                ))}
+                                        <p className="text-xs font-bold uppercase tracking-wider">
+                                            Nota Técnica
+                                        </p>
+                                    </div>
+                                    <p className="text-base font-medium leading-relaxed italic whitespace-pre-line">
+                                        {product.notaTecnica}
+                                    </p>
+                                </div>
                             </div>
-                        </div>
-                    )}
+                        )}
+                        {product.recursos && product.recursos.length > 0 && (
+                            <div>
+                                <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider mb-4 flex items-center gap-2">
+                                    <Download className="w-4 h-4" />
+                                    Recursos Descargables
+                                </h3>
+                                <div className="space-y-3">
+                                    {product.recursos.map((doc, idx) => (
+                                        <a
+                                            key={`${doc.label}-${idx}`}
+                                            href={doc.url}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="w-full flex items-center justify-between p-4 bg-white 
+                                                border border-slate-200 rounded-xl hover:border-orange-400 hover:shadow-md 
+                                                transition-all group"
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <div className="bg-orange-100 text-orange-600 p-2.5 rounded-lg 
+                                                    group-hover:bg-orange-600 group-hover:text-white transition-all">
+                                                    <Download className="w-4 h-4" />
+                                                </div>
+                                                <span className="text-sm font-semibold text-slate-700">
+                                                    {doc.label}
+                                                </span>
+                                            </div>
+                                            <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-orange-600 
+                                                group-hover:translate-x-1 transition-all" />
+                                        </a>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
+
+            {/* Productos Relacionados */}
+            {relatedProducts.length > 0 && (
+                <RelatedProductsCarousel products={relatedProducts} />
+            )}
 
         </div>
     );

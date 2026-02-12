@@ -15,6 +15,7 @@ import {
     Sparkles,
     ChevronRight,
     ChevronDown,
+    RotateCcw,
     Clock,
     Trophy,
     ShieldCheck,
@@ -49,7 +50,7 @@ interface FormData {
     categoryId: string;
     description: string;
     stock: StockStatus;
-    images: Array<{ url: string; file: File | null }>;
+    images: Array<{ url: string; file: File | null; crop: { zoom: number; offsetX: number; offsetY: number } }>;
     isPublished: boolean;
     precioVisible: boolean;
     specs: { key: string; value: string }[];
@@ -94,6 +95,7 @@ function buildFormData(product?: Product): FormData {
         const images = Array.from({ length: 4 }).map((_, idx) => ({
             url: initialUrls[idx] ?? '',
             file: null,
+            crop: { zoom: 1, offsetX: 0, offsetY: 0 },
         }));
 
         return {
@@ -131,10 +133,10 @@ function buildFormData(product?: Product): FormData {
         description: '',
         stock: 'EN STOCK',
         images: [
-            { url: DEFAULT_IMAGE, file: null },
-            { url: '', file: null },
-            { url: '', file: null },
-            { url: '', file: null },
+            { url: DEFAULT_IMAGE, file: null, crop: { zoom: 1, offsetX: 0, offsetY: 0 } },
+            { url: '', file: null, crop: { zoom: 1, offsetX: 0, offsetY: 0 } },
+            { url: '', file: null, crop: { zoom: 1, offsetX: 0, offsetY: 0 } },
+            { url: '', file: null, crop: { zoom: 1, offsetX: 0, offsetY: 0 } },
         ],
         isPublished: true,
         precioVisible: true,
@@ -162,9 +164,10 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
     const [form, setForm] = useState<FormData>(() => buildFormData(editProduct));
     const [mobileStep, setMobileStep] = useState<'form' | 'preview'>('form');
     const [saved, setSaved] = useState(false);
-    const [fichaOpen, setFichaOpen] = useState(false);
     const [saveError, setSaveError] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
+    const [activePreviewImageIdx, setActivePreviewImageIdx] = useState(0);
+    const [specsOpen, setSpecsOpen] = useState(false);
 
     const { categories } = useCategories();
     const categoryName = categories.find((c) => c.id === form.categoryId)?.nombre ?? '';
@@ -214,6 +217,63 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
             const old = next[index];
             if (old?.startsWith('blob:')) URL.revokeObjectURL(old);
             next[index] = file ? URL.createObjectURL(file) : '';
+            return next;
+        });
+    };
+
+    const updateImageCrop = (index: number, patch: Partial<FormData['images'][number]['crop']>) => {
+        setForm((prev) => {
+            const images = [...prev.images];
+            const crop = images[index]?.crop ?? { zoom: 1, offsetX: 0, offsetY: 0 };
+            images[index] = { ...images[index], crop: { ...crop, ...patch } };
+            return { ...prev, images };
+        });
+    };
+
+    const resetImageCrop = (index: number) => {
+        updateImageCrop(index, { zoom: 1, offsetX: 0, offsetY: 0 });
+    };
+
+    const swapImages = (a: number, b: number) => {
+        if (a === b) return;
+        setForm((prev) => {
+            const images = [...prev.images];
+            [images[a], images[b]] = [images[b], images[a]];
+            return { ...prev, images };
+        });
+
+        setImagePreviews((prev) => {
+            const next = [...prev];
+            [next[a], next[b]] = [next[b], next[a]];
+            return next;
+        });
+
+        setActivePreviewImageIdx((idx) => {
+            if (idx === a) return b;
+            if (idx === b) return a;
+            return idx;
+        });
+    };
+
+    const moveImage = (index: number, direction: -1 | 1) => {
+        const next = index + direction;
+        if (next < 0 || next > 3) return;
+        swapImages(index, next);
+        setActivePreviewImageIdx(next);
+    };
+
+    const clearImageSlot = (index: number) => {
+        setForm((prev) => {
+            const images = [...prev.images];
+            images[index] = { url: '', file: null, crop: { zoom: 1, offsetX: 0, offsetY: 0 } };
+            return { ...prev, images };
+        });
+
+        setImagePreviews((prev) => {
+            const next = [...prev];
+            const old = next[index];
+            if (old?.startsWith('blob:')) URL.revokeObjectURL(old);
+            next[index] = '';
             return next;
         });
     };
@@ -327,8 +387,19 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
             };
 
             const imageInputs = form.images
-                .map((s) => s.file ?? s.url?.trim())
-                .filter((v) => !!v) as Array<File | string>;
+                .map((s) => {
+                    const source = s.file ?? s.url?.trim();
+                    if (!source) return null;
+                    return {
+                        source,
+                        crop: {
+                            zoom: s.crop.zoom,
+                            offsetX: s.crop.offsetX,
+                            offsetY: s.crop.offsetY,
+                        },
+                    };
+                })
+                .filter((v) => !!v) as Array<{ source: File | string; crop: { zoom: number; offsetX: number; offsetY: number } }>;
 
             const originalUrls = (editProduct?.images ?? []).slice(0, 4);
             const currentUrls = form.images.map((s) => s.file ? '__file__' : (s.url?.trim() ?? '')).slice(0, 4);
@@ -480,72 +551,236 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
             <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
                 <div className="px-6 py-4 border-b border-gray-100 bg-slate-50/50">
                     <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                        <Upload className="w-4 h-4 text-orange-500" /> Imágenes del Producto (hasta 4)
+                        <Upload className="w-4 h-4 text-orange-500" /> Imágenes del Producto
+                        <span className="text-xs font-normal text-slate-400">(hasta 4 fotos)</span>
                     </h3>
                 </div>
-                <div className="p-6">
-                    <p className="text-xs text-slate-400 mb-4">
-                        Puedes pegar un link o subir una imagen desde tu equipo. Se optimiza a WebP y se guarda en Supabase Storage.
-                    </p>
+                <div className="p-6 space-y-4">
+                    {form.images.map((slot, idx) => {
+                        const isPrincipal = idx === 0;
+                        const hasContent = !!(slot.url || slot.file);
+                        
+                        return (
+                            <div key={idx} className={`border-2 rounded-2xl overflow-hidden transition-all ${hasContent ? 'border-gray-200 bg-white' : 'border-dashed border-gray-300 bg-gray-50/50'}`}>
+                                <div className="p-4 flex flex-col lg:flex-row gap-4">
+                                    {/* Preview + Info */}
+                                    <div className="lg:w-80 shrink-0 space-y-3">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-sm font-bold text-slate-800">
+                                                    {isPrincipal ? '🌟 Principal' : `📸 Imagen ${idx + 1}`}
+                                                </span>
+                                            </div>
+                                            {hasContent && (
+                                                <div className="flex items-center gap-1.5">
+                                                    {!isPrincipal && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => { swapImages(idx, 0); setActivePreviewImageIdx(0); }}
+                                                            title="Hacer principal"
+                                                            className="p-1.5 rounded-lg bg-orange-100 text-orange-600 hover:bg-orange-200 transition-colors"
+                                                        >
+                                                            <Star className="w-4 h-4" />
+                                                        </button>
+                                                    )}
+                                                    {idx > 0 && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => moveImage(idx, -1)}
+                                                            title="Mover izquierda"
+                                                            className="p-1.5 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                                                        >
+                                                            <ArrowLeft className="w-4 h-4" />
+                                                        </button>
+                                                    )}
+                                                    {idx < 3 && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => moveImage(idx, 1)}
+                                                            title="Mover derecha"
+                                                            className="p-1.5 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                                                        >
+                                                            <ArrowRight className="w-4 h-4" />
+                                                        </button>
+                                                    )}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => resetImageCrop(idx)}
+                                                        title="Restaurar zoom"
+                                                        className="p-1.5 rounded-lg bg-blue-100 text-blue-600 hover:bg-blue-200 transition-colors"
+                                                    >
+                                                        <RotateCcw className="w-4 h-4" />
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => clearImageSlot(idx)}
+                                                        title="Eliminar imagen"
+                                                        className="p-1.5 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition-colors"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                        {form.images.map((slot, idx) => (
-                            <div key={idx} className="border border-gray-200 rounded-2xl p-4 bg-white">
-                                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Imagen {idx + 1}</p>
+                                        <div className="aspect-video rounded-xl overflow-hidden bg-slate-100 border border-gray-200 relative group">
+                                            {hasContent ? (
+                                                <img
+                                                    src={imagePreviews[idx] || DEFAULT_IMAGE}
+                                                    alt={`Imagen ${idx + 1}`}
+                                                    className="absolute inset-0 w-full h-full object-cover"
+                                                    style={{
+                                                        transform: `translate(${(slot.crop.offsetX * 18).toFixed(2)}%, ${(slot.crop.offsetY * 18).toFixed(2)}%) scale(${slot.crop.zoom})`,
+                                                        transformOrigin: 'center',
+                                                    }}
+                                                    loading="lazy"
+                                                />
+                                            ) : (
+                                                <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400">
+                                                    <Upload className="w-8 h-8 mb-2" />
+                                                    <span className="text-sm font-medium">Sin imagen</span>
+                                                </div>
+                                            )}
+                                        </div>
 
-                                <div className="aspect-video rounded-xl overflow-hidden bg-slate-100 border border-gray-200 relative mb-3">
-                                    <img
-                                        src={imagePreviews[idx] || DEFAULT_IMAGE}
-                                        alt={`Preview imagen ${idx + 1}`}
-                                        className="absolute inset-0 w-full h-full object-cover"
-                                        loading="lazy"
-                                    />
-                                </div>
+                                        {isPrincipal && (
+                                            <p className="text-xs text-blue-600 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+                                                💡 Esta imagen se muestra en el catálogo
+                                            </p>
+                                        )}
+                                    </div>
 
-                                <label className="block text-xs font-semibold text-slate-500 mb-1">Link (opcional)</label>
-                                <input
-                                    type="url"
-                                    value={slot.url}
-                                    onChange={(e) => updateImageUrl(idx, e.target.value)}
-                                    placeholder="https://..."
-                                    className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                                />
+                                    {/* Controles */}
+                                    <div className="flex-1 space-y-4">
+                                        {hasContent ? (
+                                            <>
+                                                <div>
+                                                    <label className="text-xs font-bold text-slate-600 mb-2 block">Ajustar encuadre</label>
+                                                    <div className="space-y-3">
+                                                        <div>
+                                                            <div className="flex items-center justify-between mb-1.5">
+                                                                <span className="text-xs text-slate-600">🔍 Zoom</span>
+                                                                <span className="text-xs font-bold text-orange-600">{slot.crop.zoom.toFixed(1)}x</span>
+                                                            </div>
+                                                            <input
+                                                                type="range"
+                                                                min={1}
+                                                                max={2.5}
+                                                                step={0.1}
+                                                                value={slot.crop.zoom}
+                                                                onChange={(e) => updateImageCrop(idx, { zoom: Number(e.target.value) })}
+                                                                className="w-full h-2 bg-gray-200 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-orange-500"
+                                                            />
+                                                        </div>
+                                                        <div className="grid grid-cols-2 gap-3">
+                                                            <div>
+                                                                <div className="flex items-center justify-between mb-1.5">
+                                                                    <span className="text-xs text-slate-600">↔️ Horizontal</span>
+                                                                    <span className="text-xs font-bold text-orange-600">{slot.crop.offsetX > 0 ? '→' : slot.crop.offsetX < 0 ? '←' : '•'}</span>
+                                                                </div>
+                                                                <input
+                                                                    type="range"
+                                                                    min={-1}
+                                                                    max={1}
+                                                                    step={0.1}
+                                                                    value={slot.crop.offsetX}
+                                                                    onChange={(e) => updateImageCrop(idx, { offsetX: Number(e.target.value) })}
+                                                                    className="w-full h-2 bg-gray-200 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-orange-500"
+                                                                />
+                                                            </div>
+                                                            <div>
+                                                                <div className="flex items-center justify-between mb-1.5">
+                                                                    <span className="text-xs text-slate-600">↕️ Vertical</span>
+                                                                    <span className="text-xs font-bold text-orange-600">{slot.crop.offsetY > 0 ? '↓' : slot.crop.offsetY < 0 ? '↑' : '•'}</span>
+                                                                </div>
+                                                                <input
+                                                                    type="range"
+                                                                    min={-1}
+                                                                    max={1}
+                                                                    step={0.1}
+                                                                    value={slot.crop.offsetY}
+                                                                    onChange={(e) => updateImageCrop(idx, { offsetY: Number(e.target.value) })}
+                                                                    className="w-full h-2 bg-gray-200 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-orange-500"
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
 
-                                <div className="mt-3">
-                                    <label className="block text-xs font-semibold text-slate-500 mb-1">Subir archivo (opcional)</label>
-                                    <input
-                                        type="file"
-                                        accept="image/*"
-                                        onChange={(e) => updateImageFile(idx, e.target.files?.[0] ?? null)}
-                                        className="block w-full text-sm text-slate-600 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-slate-100 file:text-slate-700 file:font-semibold hover:file:bg-slate-200"
-                                    />
-                                    {slot.file && (
-                                        <p className="mt-1 text-[11px] text-slate-400 truncate">
-                                            Archivo: {slot.file.name}
-                                        </p>
-                                    )}
+                                                <div className="pt-3 border-t border-gray-200">
+                                                    <label className="text-xs font-bold text-slate-600 mb-2 block">Cambiar imagen</label>
+                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                        <input
+                                                            type="url"
+                                                            value={slot.url}
+                                                            onChange={(e) => updateImageUrl(idx, e.target.value)}
+                                                            placeholder="🔗 Pegar URL..."
+                                                            className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                                        />
+                                                        <div className="relative">
+                                                            <input
+                                                                type="file"
+                                                                accept="image/*"
+                                                                onChange={(e) => updateImageFile(idx, e.target.files?.[0] ?? null)}
+                                                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                                            />
+                                                            <div className="px-3 py-2 bg-slate-100 border border-gray-200 rounded-lg text-sm text-slate-600 text-center font-medium pointer-events-none">
+                                                                📁 {slot.file ? slot.file.name.slice(0, 15) + '...' : 'Subir archivo'}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </>
+                                        ) : (
+                                            <div>
+                                                <label className="text-xs font-bold text-slate-600 mb-2 block">Agregar imagen</label>
+                                                <div className="space-y-3">
+                                                    <input
+                                                        type="url"
+                                                        value={slot.url}
+                                                        onChange={(e) => updateImageUrl(idx, e.target.value)}
+                                                        placeholder="🔗 Pegar URL de la imagen..."
+                                                        className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                                    />
+                                                    <div className="relative">
+                                                        <div className="absolute inset-0 flex items-center">
+                                                            <div className="w-full border-t border-gray-300"></div>
+                                                        </div>
+                                                        <div className="relative flex justify-center text-xs">
+                                                            <span className="bg-white px-2 text-gray-500">o</span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="relative">
+                                                        <input
+                                                            type="file"
+                                                            accept="image/*"
+                                                            onChange={(e) => updateImageFile(idx, e.target.files?.[0] ?? null)}
+                                                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                                        />
+                                                        <div className="px-4 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm text-center font-bold pointer-events-none transition-colors">
+                                                            📁 Subir desde tu computadora
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
-                        ))}
-                    </div>
+                        );
+                    })}
                 </div>
             </div>
 
-            {/* Ficha Técnica — Collapsible */}
+            {/* Ficha Técnica (principal) */}
             <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
-                <button
-                    type="button"
-                    onClick={() => setFichaOpen(!fichaOpen)}
-                    className="w-full px-6 py-4 border-b border-gray-100 bg-slate-50/50 flex items-center justify-between"
-                >
+                <div className="px-6 py-4 border-b border-gray-100 bg-slate-50/50">
                     <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
                         <Layers className="w-4 h-4 text-orange-500" /> Ficha Técnica
-                        <span className="text-xs font-normal text-slate-400">(opcional)</span>
+                        <span className="text-xs font-normal text-slate-400">(puede estar vacía)</span>
                     </h3>
-                    <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${fichaOpen ? 'rotate-180' : ''}`} />
-                </button>
-                {fichaOpen && (
-                    <div className="p-6 space-y-4">
+                </div>
+                <div className="p-6 space-y-4">
                         {/* Color + Material */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
@@ -666,17 +901,23 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
                             </div>
                         </div>
                     </div>
-                )}
             </div>
 
-            {/* Specs */}
+            {/* Especificaciones Técnicas (opcional) */}
             <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
-                <div className="px-6 py-4 border-b border-gray-100 bg-slate-50/50">
+                <button
+                    type="button"
+                    onClick={() => setSpecsOpen((v) => !v)}
+                    className="w-full px-6 py-4 border-b border-gray-100 bg-slate-50/50 flex items-center justify-between"
+                >
                     <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
                         <Eye className="w-4 h-4 text-orange-500" /> Especificaciones Técnicas
+                        <span className="text-xs font-normal text-slate-400">(opcional)</span>
                     </h3>
-                </div>
-                <div className="p-6">
+                    <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${specsOpen ? 'rotate-180' : ''}`} />
+                </button>
+                {specsOpen && (
+                    <div className="p-6">
                     <div className="space-y-3">
                         {form.specs.map((spec, i) => (
                             <div key={i} className="flex gap-2 items-center">
@@ -710,7 +951,8 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
                     >
                         <Plus className="w-4 h-4" /> Añadir otra especificación
                     </button>
-                </div>
+                    </div>
+                )}
             </div>
 
             {/* Detalle avanzado */}
@@ -836,7 +1078,15 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
                 {/* Product Image */}
                 <div className="aspect-[16/9] bg-slate-100 relative overflow-hidden">
                     {imagePreviews[0] ? (
-                        <img src={imagePreviews[0]} alt="Preview" className="absolute inset-0 w-full h-full object-cover" />
+                        <img
+                            src={imagePreviews[activePreviewImageIdx] || imagePreviews[0]}
+                            alt="Preview"
+                            className="absolute inset-0 w-full h-full object-cover"
+                            style={{
+                                transform: `translate(${((form.images[activePreviewImageIdx]?.crop.offsetX ?? 0) * 18).toFixed(2)}%, ${((form.images[activePreviewImageIdx]?.crop.offsetY ?? 0) * 18).toFixed(2)}%) scale(${form.images[activePreviewImageIdx]?.crop.zoom ?? 1})`,
+                                transformOrigin: 'center',
+                            }}
+                        />
                     ) : (
                         <div className="flex items-center justify-center h-full text-slate-300">
                             <Upload className="w-10 h-10" />

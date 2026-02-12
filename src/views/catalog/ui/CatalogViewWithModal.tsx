@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { ChevronRight, ChevronDown, Grid, List as ListIcon } from 'lucide-react';
 import ProductCard from '@/src/widgets/product-card/ui/ProductCard';
+import ProductBookModal from '@/src/widgets/product-book-modal';
 import FilterPanel from '@/src/features/product-filter/ui/FilterPanel';
 import LoadingOverlay from '@/src/shared/ui/LoadingOverlay';
 import { useProducts } from '@/src/features/product-management';
@@ -19,14 +19,15 @@ const SORT_OPTIONS: { value: SortOption; label: string }[] = [
     { value: 'name-asc', label: 'Nombre: A-Z' },
 ];
 
-export default function CatalogView() {
-    const router = useRouter();
+export default function CatalogViewWithModal() {
     const { products: allProducts, error: productsError } = useProducts();
     const { activeCategories, loading: catsLoading, error: categoriesError } = useCategories();
     const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
     const [sortBy, setSortBy] = useState<SortOption>('popular');
     const [sortOpen, setSortOpen] = useState(false);
+    const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+    const [isModalOpen, setIsModalOpen] = useState(false);
     const sortRef = useRef<HTMLDivElement>(null);
 
     // Close sort dropdown on outside click
@@ -59,7 +60,6 @@ export default function CatalogView() {
                 break;
             case 'popular':
             default:
-                // Default order: keep original order (no sort needed)
                 break;
         }
 
@@ -73,11 +73,16 @@ export default function CatalogView() {
     const currentSortLabel = SORT_OPTIONS.find((s) => s.value === sortBy)?.label;
 
     const handleProductClick = (product: Product) => {
-        router.push(`/catalog/${product.id}`);
+        setSelectedProduct(product);
+        setIsModalOpen(true);
+    };
+
+    const handleCloseModal = () => {
+        setIsModalOpen(false);
+        setTimeout(() => setSelectedProduct(null), 300);
     };
 
     const showLoading = catsLoading && activeCategories.length === 0;
-
     const loadError = categoriesError || productsError;
 
     return (
@@ -193,6 +198,15 @@ export default function CatalogView() {
                     )}
                 </div>
             </div>
+
+            {/* Modal del producto */}
+            {selectedProduct && (
+                <ProductBookModal
+                    product={selectedProduct}
+                    isOpen={isModalOpen}
+                    onClose={handleCloseModal}
+                />
+            )}
         </>
     );
 }

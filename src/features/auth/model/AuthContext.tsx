@@ -118,24 +118,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 const { data: { session } } = await Promise.race([sessionPromise, timeoutPromise]);
 
                 if (session?.user && !ignore) {
-                    let authUser: AuthUser;
-                    try {
-                        authUser = await buildAuthUser(session.user.id, session.user.email ?? '');
-                    } catch (err) {
-                        console.warn('[Auth] buildAuthUser failed:', err);
-                        authUser = {
-                            id: session.user.id,
-                            name: (session.user.email ?? 'usuario').split('@')[0],
-                            email: session.user.email ?? '',
-                            role: 'viewer',
-                        };
-                    }
+                    const basicUser: AuthUser = {
+                        id: session.user.id,
+                        name: (session.user.email ?? 'usuario').split('@')[0],
+                        email: session.user.email ?? '',
+                        role: 'viewer',
+                    };
+
+                    // Mark authenticated immediately, then enrich profile in background.
                     setState((s) => ({
                         ...s,
-                        user: authUser,
+                        user: basicUser,
                         isAuthenticated: true,
                         isInitialising: false,
                     }));
+
+                    void buildAuthUser(session.user.id, session.user.email ?? '')
+                        .then((authUser) => {
+                            if (ignore) return;
+                            setState((s) => ({ ...s, user: authUser }));
+                        })
+                        .catch((err) => console.warn('[Auth] buildAuthUser failed:', err));
                 } else if (!ignore) {
                     setState((s) => ({ ...s, isInitialising: false }));
                 }
@@ -169,28 +172,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 }
 
                 if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-                    let authUser: AuthUser;
-                    try {
-                        authUser = await buildAuthUser(
-                            session.user.id,
-                            session.user.email ?? '',
-                        );
-                    } catch (err) {
-                        console.warn('[Auth] buildAuthUser failed:', err);
-                        authUser = {
-                            id: session.user.id,
-                            name: (session.user.email ?? 'usuario').split('@')[0],
-                            email: session.user.email ?? '',
-                            role: 'viewer',
-                        };
-                    }
+                    const basicUser: AuthUser = {
+                        id: session.user.id,
+                        name: (session.user.email ?? 'usuario').split('@')[0],
+                        email: session.user.email ?? '',
+                        role: 'viewer',
+                    };
+
                     setState((s) => ({
                         ...s,
-                        user: authUser,
+                        user: basicUser,
                         isAuthenticated: true,
                         isLoading: false,
                         isInitialising: false,
                     }));
+
+                    void buildAuthUser(session.user.id, session.user.email ?? '')
+                        .then((authUser) => setState((s) => ({ ...s, user: authUser })))
+                        .catch((err) => console.warn('[Auth] buildAuthUser failed:', err));
                 }
             },
         );

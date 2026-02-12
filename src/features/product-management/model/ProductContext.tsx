@@ -32,16 +32,28 @@ interface ProductResult {
     id?: string;
 }
 
+type ImageCrop = {
+    /** 1 = sin zoom, >1 acerca */
+    zoom?: number;
+    /** -1..1 (izq..der) */
+    offsetX?: number;
+    /** -1..1 (arriba..abajo) */
+    offsetY?: number;
+};
+
+type ProductImageInput = string | File | { source: string | File; crop?: ImageCrop };
+
 interface UpdateOptions {
     refetch?: boolean;
 }
 
 interface ProductContextValue extends ProductState {
-    addProduct: (data: Omit<Product, 'id'>, imageInputs?: Array<string | File>) => Promise<ProductResult>;
+    addProduct: (data: Omit<Product, 'id'>, imageInputs?: ProductImageInput[]) => Promise<ProductResult>;
     updateProduct: (id: string, updates: Partial<Omit<Product, 'id'>>, options?: UpdateOptions) => Promise<ProductResult>;
-    setProductImages: (id: string, imageInputs: Array<string | File>) => Promise<ProductResult>;
+    setProductImages: (id: string, imageInputs: ProductImageInput[]) => Promise<ProductResult>;
     deleteProduct: (id: string) => Promise<ProductResult>;
     getProduct: (id: string) => Product | undefined;
+    getRelatedProducts: (productId: string, limit?: number) => Product[];
     refetch: () => Promise<void>;
 }
 
@@ -204,23 +216,49 @@ export function ProductProvider({ children }: { children: ReactNode }) {
         void fetchProducts(true);
     }, [fetchProducts]);
 
-    const toWebpBlob = useCallback(async (blob: Blob): Promise<Blob> => {
-        // Best-effort: convert to WebP in the browser.
+    const toWebpBlob = useCallback(async (blob: Blob, crop?: ImageCrop): Promise<Blob> => {
+        // Convert to WebP and (optionally) apply a crop/zoom to a fixed aspect ratio.
         // If conversion fails, upload original blob.
         try {
-            // createImageBitmap is faster & avoids <img> DOM.
             const bitmap: ImageBitmap = await createImageBitmap(blob);
+
+            // Target aspect: 4:3 (matches product gallery)
+            const targetW = 1200;
+            const targetH = 900;
+
             const canvas = document.createElement('canvas');
-            canvas.width = bitmap.width;
-            canvas.height = bitmap.height;
+            canvas.width = targetW;
+            canvas.height = targetH;
             const ctx = canvas.getContext('2d');
             if (!ctx) return blob;
-            ctx.drawImage(bitmap, 0, 0);
+
+            const zoom = Math.max(1, Math.min(3, crop?.zoom ?? 1));
+            const offsetX = Math.max(-1, Math.min(1, crop?.offsetX ?? 0));
+            const offsetY = Math.max(-1, Math.min(1, crop?.offsetY ?? 0));
+
+            // Cover scale, then apply extra zoom.
+            const coverScale = Math.max(targetW / bitmap.width, targetH / bitmap.height);
+            const scale = coverScale * zoom;
+            const drawW = bitmap.width * scale;
+            const drawH = bitmap.height * scale;
+
+            const maxPanX = Math.max(0, (drawW - targetW) / 2);
+            const maxPanY = Math.max(0, (drawH - targetH) / 2);
+            const panX = offsetX * maxPanX;
+            const panY = offsetY * maxPanY;
+
+            const dx = (targetW - drawW) / 2 + panX;
+            const dy = (targetH - drawH) / 2 + panY;
+
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+            ctx.drawImage(bitmap, dx, dy, drawW, drawH);
             bitmap.close();
 
             const webp = await new Promise<Blob | null>((resolve) => {
                 canvas.toBlob((b) => resolve(b), 'image/webp', 0.85);
             });
+
             return webp ?? blob;
         } catch {
             return blob;
@@ -228,9 +266,9 @@ export function ProductProvider({ children }: { children: ReactNode }) {
     }, []);
 
     const setProductImages = useCallback(
-        async (productId: string, imageInputs: Array<string | File>): Promise<ProductResult> => {
+        async (productId: string, imageInputs: ProductImageInput[]): Promise<ProductResult> => {
             try {
-                const inputs = imageInputs.filter(Boolean).slice(0, 4);
+                const inputs = (imageInputs ?? []).filter(Boolean).slice(0, 4);
 
                 // Get existing image rows so we can delete objects.
                 const { data: existing, error: existingErr } = await sb.current
@@ -277,18 +315,25 @@ export function ProductProvider({ children }: { children: ReactNode }) {
                     const order = i + 1;
                     const input = inputs[i];
 
+                    const source = (typeof input === 'object' && input && 'source' in input)
+                        ? (input as { source: string | File; crop?: ImageCrop }).source
+                        : input;
+                    const crop = (typeof input === 'object' && input && 'source' in input)
+                        ? (input as { source: string | File; crop?: ImageCrop }).crop
+                        : undefined;
+
                     let sourceBlob: Blob;
-                    if (typeof input === 'string') {
-                        const res = await fetch(input);
+                    if (typeof source === 'string') {
+                        const res = await fetch(source);
                         if (!res.ok) {
                             return { success: false, error: `No se pudo descargar la imagen ${order} (URL).` };
                         }
                         sourceBlob = await res.blob();
                     } else {
-                        sourceBlob = input;
+                        sourceBlob = source;
                     }
 
-                    const webpBlob = await toWebpBlob(sourceBlob);
+                    const webpBlob = await toWebpBlob(sourceBlob, crop);
                     const path = `${STORAGE_PREFIX}/${productId}/${order}.webp`;
 
                     const { error: upErr } = await sb.current.storage
@@ -328,7 +373,7 @@ export function ProductProvider({ children }: { children: ReactNode }) {
     }, [fetchProducts]);
 
     const addProduct = useCallback(
-        async (data: Omit<Product, 'id'>, imageInputs?: Array<string | File>): Promise<ProductResult> => {
+        async (data: Omit<Product, 'id'>, imageInputs?: ProductImageInput[]): Promise<ProductResult> => {
             try {
                 const slugBase = data.sku?.trim() || data.title;
                 const slug = toSlug(slugBase || `producto-${Date.now()}`);
@@ -375,7 +420,7 @@ export function ProductProvider({ children }: { children: ReactNode }) {
 
                 const productId = String(inserted.id);
 
-                const inputs = (imageInputs ?? data.images ?? []) as Array<string | File>;
+                const inputs = (imageInputs ?? data.images ?? []) as ProductImageInput[];
                 if (Array.isArray(inputs) && inputs.filter(Boolean).length > 0) {
                     const imgRes = await setProductImages(productId, inputs);
                     if (!imgRes.success) return imgRes;
@@ -458,7 +503,7 @@ export function ProductProvider({ children }: { children: ReactNode }) {
                 }
 
                 if (updates.images) {
-                    const imgRes = await setProductImages(id, updates.images as unknown as Array<string | File>);
+                    const imgRes = await setProductImages(id, updates.images as unknown as ProductImageInput[]);
                     if (!imgRes.success) return imgRes;
                 }
 
@@ -544,6 +589,24 @@ export function ProductProvider({ children }: { children: ReactNode }) {
         [state.products],
     );
 
+    const getRelatedProducts = useCallback(
+        (productId: string, limit = 20) => {
+            const currentProduct = state.products.find((p) => p.id === productId);
+            if (!currentProduct) return [];
+
+            // Filtrar productos de la misma categoría que estén publicados, excluyendo el producto actual
+            const related = state.products.filter(
+                (p) => p.categoryId === currentProduct.categoryId 
+                    && p.id !== productId 
+                    && p.isPublished
+            );
+
+            // Limitar a la cantidad especificada (máximo 20)
+            return related.slice(0, Math.min(limit, 20));
+        },
+        [state.products],
+    );
+
     const value = useMemo<ProductContextValue>(() => ({
         ...state,
         addProduct,
@@ -551,8 +614,9 @@ export function ProductProvider({ children }: { children: ReactNode }) {
         setProductImages,
         deleteProduct,
         getProduct,
+        getRelatedProducts,
         refetch: () => fetchProducts(true),
-    }), [state, addProduct, updateProduct, setProductImages, deleteProduct, getProduct, fetchProducts]);
+    }), [state, addProduct, updateProduct, setProductImages, deleteProduct, getProduct, getRelatedProducts, fetchProducts]);
 
     return <ProductContext.Provider value={value}>{children}</ProductContext.Provider>;
 }

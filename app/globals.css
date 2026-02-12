@@ -38,3 +38,18 @@ body {
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
+/* Ocultar scrollbar pero mantener funcionalidad */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Transición suave para el scroll */
+.smooth-scroll {
+  scroll-behavior: smooth;
+}
