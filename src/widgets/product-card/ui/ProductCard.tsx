@@ -53,6 +53,7 @@ function ListCard({ product, onClick }: Omit<ProductCardProps, 'viewMode'>) {
     const descriptionText = product.description?.trim()
         ? truncateWords(product.description, MAX_WORDS)
         : 'Sin descripción';
+    const categoryLabel = product.category?.trim() || 'Sin categoria';
 
     return (
         <article
@@ -79,7 +80,7 @@ function ListCard({ product, onClick }: Omit<ProductCardProps, 'viewMode'>) {
                 <div>
                     <div className="flex items-center gap-2 mb-2 flex-wrap">
                         <span className="text-xs font-semibold bg-slate-800 text-white px-2.5 py-0.5 rounded">
-                            SKU: {product.sku}
+                            Categoria: {categoryLabel}
                         </span>
                         <StockBadge stock={product.stock} />
                     </div>
@@ -135,6 +136,7 @@ function GridCard({ product, onClick }: Omit<ProductCardProps, 'viewMode'>) {
     const descriptionText = product.description?.trim()
         ? truncateWords(product.description, MAX_WORDS)
         : 'Sin descripción';
+    const categoryLabel = product.category?.trim() || 'Sin categoria';
 
     return (
         <article
@@ -160,7 +162,7 @@ function GridCard({ product, onClick }: Omit<ProductCardProps, 'viewMode'>) {
 
             {/* Info */}
             <div className="p-5 flex flex-col flex-1">
-                <span className="text-xs font-medium text-slate-400 mb-1">SKU: {product.sku}</span>
+                <span className="text-xs font-medium text-slate-400 mb-1">Categoria: {categoryLabel}</span>
                 <h3 className="text-base font-bold text-slate-900 group-hover:text-orange-600 transition-colors mb-2 leading-snug line-clamp-2">
                     {product.title}
                 </h3>

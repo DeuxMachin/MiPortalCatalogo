@@ -46,9 +46,9 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     };
 
     return (
-        <div className="min-h-screen bg-slate-50 flex flex-col lg:flex-row">
+        <div className="min-h-screen lg:h-screen lg:overflow-hidden bg-slate-50 flex flex-col lg:flex-row">
             {/* Sidebar — desktop */}
-            <aside className="hidden lg:flex flex-col w-64 bg-white border-r border-gray-200 flex-shrink-0">
+            <aside className="hidden lg:flex flex-col w-64 bg-white border-r border-gray-200 flex-shrink-0 lg:sticky lg:top-0 lg:h-screen lg:overflow-y-auto">
                 {/* Logo */}
                 <div className="p-5 border-b border-gray-100">
                     <Logo size="md" showText onClick={() => router.push('/catalog')} />
@@ -148,7 +148,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             </div>
 
             {/* Content */}
-            <main className="flex-1 p-4 lg:p-8">{children}</main>
+            <main className="flex-1 p-4 lg:p-8 lg:overflow-y-auto lg:min-h-0">{children}</main>
         </div>
     );
 }

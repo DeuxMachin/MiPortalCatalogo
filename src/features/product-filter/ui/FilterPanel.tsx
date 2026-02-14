@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Search, X, ChevronDown, Layers } from 'lucide-react';
 import type { Category } from '@/src/entities/category/model/types';
+import { compareByPopularityCategoryName } from '@/src/shared/lib/categoryPopularityOrder';
 
 interface FilterPanelProps {
     categories: Category[];
@@ -18,9 +19,9 @@ export default function FilterPanel({
     const [searchTerm, setSearchTerm] = useState('');
     const [collapsed, setCollapsed] = useState(false);
 
-    const filtered = categories.filter((c) =>
-        c.nombre.toLowerCase().includes(searchTerm.toLowerCase()),
-    );
+    const filtered = [...categories]
+        .filter((c) => c.nombre.toLowerCase().includes(searchTerm.toLowerCase()))
+        .sort((a, b) => compareByPopularityCategoryName(a.nombre, b.nombre));
 
     const activeCategory = activeCategoryId
         ? categories.find((c) => c.id === activeCategoryId)

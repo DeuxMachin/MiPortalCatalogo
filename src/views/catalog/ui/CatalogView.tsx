@@ -9,6 +9,7 @@ import LoadingOverlay from '@/src/shared/ui/LoadingOverlay';
 import { useProducts } from '@/src/features/product-management';
 import { useCategories } from '@/src/features/category-management';
 import type { Product } from '@/src/entities/product/model/types';
+import { getCategoryPopularityRank } from '@/src/shared/lib/categoryPopularityOrder';
 
 type SortOption = 'popular' | 'price-asc' | 'price-desc' | 'name-asc';
 
@@ -43,6 +44,9 @@ export default function CatalogView() {
     const filteredProducts = useMemo(() => {
         let products = allProducts.filter((p) => p.isPublished);
 
+        const categoryNameById = new Map(activeCategories.map((c) => [c.id, c.nombre] as const));
+        const getCategoryName = (p: Product) => categoryNameById.get(String(p.categoryId)) ?? p.category ?? '';
+
         if (activeCategoryId) {
             products = products.filter((p) => String(p.categoryId) === activeCategoryId);
         }
@@ -59,12 +63,19 @@ export default function CatalogView() {
                 break;
             case 'popular':
             default:
-                // Default order: keep original order (no sort needed)
+                if (!activeCategoryId) {
+                    products = [...products].sort((a, b) => {
+                        const aRank = getCategoryPopularityRank(getCategoryName(a));
+                        const bRank = getCategoryPopularityRank(getCategoryName(b));
+                        if (aRank !== bRank) return aRank - bRank;
+                        return a.title.localeCompare(b.title, 'es', { sensitivity: 'base' });
+                    });
+                }
                 break;
         }
 
         return products;
-    }, [activeCategoryId, sortBy, allProducts]);
+    }, [activeCategoryId, sortBy, allProducts, activeCategories]);
 
     const activeCategoryName = activeCategoryId
         ? activeCategories.find((c) => c.id === activeCategoryId)?.nombre

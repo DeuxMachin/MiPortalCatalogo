@@ -77,18 +77,17 @@ export default function ProductBookModal({ product, isOpen, onClose }: ProductBo
 
     return (
         <div
-            className={`fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-opacity duration-300 ${
+            className={`fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/55 transition-opacity duration-200 ${
                 isClosing ? 'opacity-0' : 'opacity-100'
             }`}
             onClick={handleClose}
         >
             {/* Modal Libro */}
             <div
-                className={`relative bg-white rounded-2xl shadow-2xl max-w-7xl w-full max-h-[95vh] overflow-hidden transform transition-all duration-300 ${
+                className={`relative bg-white rounded-2xl shadow-xl max-w-7xl w-full max-h-[95vh] overflow-hidden transform transition-all duration-200 ${
                     isClosing ? 'scale-95 opacity-0' : 'scale-100 opacity-100'
                 }`}
                 onClick={(e) => e.stopPropagation()}
-                style={{ perspective: '2000px' }}
             >
                 {/* Botón cerrar */}
                 <button
@@ -100,7 +99,7 @@ export default function ProductBookModal({ product, isOpen, onClose }: ProductBo
                 </button>
 
                 {/* Contenedor de páginas del libro */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 h-full max-h-[95vh] overflow-y-auto">
+                <div className="grid grid-cols-1 lg:grid-cols-2 h-full max-h-[95vh] overflow-y-auto overscroll-contain">
                     {/* PÁGINA IZQUIERDA - Imágenes y Info Principal */}
                     <div className="bg-gradient-to-br from-slate-50 to-white p-8 lg:p-12 border-r border-gray-200 flex flex-col">
                         {/* Badge de categoría */}
@@ -232,7 +231,7 @@ export default function ProductBookModal({ product, isOpen, onClose }: ProductBo
                     </div>
 
                     {/* PÁGINA DERECHA - Ficha Técnica y Recursos */}
-                    <div className="bg-white p-8 lg:p-12 overflow-y-auto">
+                    <div className="bg-white p-8 lg:p-12">
                         {/* Header Ficha Técnica */}
                         <div className="mb-8">
                             <div className="flex items-center gap-3 mb-2">
@@ -338,9 +337,9 @@ export default function ProductBookModal({ product, isOpen, onClose }: ProductBo
                         )}
 
                         {/* CTA Button */}
-                        <div className="sticky bottom-0 bg-white pt-6 border-t border-gray-200">
+                        <div className="bg-white pt-6 border-t border-gray-200">
                             <button
-                                className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-3 transition-all shadow-lg hover:shadow-xl"
+                                className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-3 transition-colors"
                                 onClick={handleClose}
                             >
                                 <ShoppingCart className="w-5 h-5" />

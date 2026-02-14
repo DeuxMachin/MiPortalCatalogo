@@ -171,11 +171,7 @@ export default function RelatedProductsCarousel({ products }: RelatedProductsCar
                             <div className="p-5">
                                 <div className="flex items-center gap-2 mb-2">
                                     <span className="text-xs font-medium text-slate-400">
-                                        SKU: {product.sku}
-                                    </span>
-                                    <span className="text-xs text-slate-300">•</span>
-                                    <span className="text-xs font-medium text-orange-600">
-                                        {product.category}
+                                        Categoria: {product.category?.trim() || 'Sin categoria'}
                                     </span>
                                 </div>
                                 <h3 className="text-base font-bold text-slate-900 group-hover:text-orange-600 

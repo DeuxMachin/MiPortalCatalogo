@@ -13,6 +13,20 @@ import type { Product } from '@/src/entities/product/model/types';
 
 type AdminTab = 'products' | 'categories';
 
+function buildProductSpecChips(product: Product): string[] {
+    const chips: string[] = [];
+
+    if (product.color?.trim()) chips.push(`Color: ${product.color}`);
+    if (product.material?.trim()) chips.push(`Material: ${product.material}`);
+    if (product.contenido?.trim()) {
+        const unidad = product.unidadMedida?.trim() ? ` ${product.unidadMedida}` : '';
+        chips.push(`Contenido: ${product.contenido}${unidad}`);
+    }
+    if (product.presentacion?.trim()) chips.push(`Presentación: ${product.presentacion}`);
+
+    return chips;
+}
+
 export default function AdminPage() {
     const { products, deleteProduct, updateProduct, refetch } = useProducts();
     const {
@@ -284,6 +298,31 @@ export default function AdminPage() {
                                         <h3 className="text-sm font-semibold text-slate-800 line-clamp-2 leading-snug">
                                             {product.title}
                                         </h3>
+
+                                        {(() => {
+                                            const chips = buildProductSpecChips(product);
+                                            if (chips.length === 0) return null;
+                                            return (
+                                                <div className="mt-2 flex flex-wrap gap-1.5">
+                                                    {chips.slice(0, 3).map((label) => (
+                                                        <span
+                                                            key={label}
+                                                            className="text-[11px] font-semibold px-2 py-1 rounded-full bg-slate-50 text-slate-600 border border-slate-200"
+                                                            title={label}
+                                                        >
+                                                            <span className="truncate max-w-[140px] inline-block align-bottom">
+                                                                {label}
+                                                            </span>
+                                                        </span>
+                                                    ))}
+                                                    {chips.length > 3 && (
+                                                        <span className="text-[11px] font-bold px-2 py-1 rounded-full bg-orange-50 text-orange-700 border border-orange-200">
+                                                            +{chips.length - 3}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            );
+                                        })()}
                                     </div>
                                 </div>
                             ))}
