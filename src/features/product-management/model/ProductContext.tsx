@@ -14,6 +14,7 @@ import type { Product } from '@/src/entities/product/model/types';
 import { createProductUseCase } from '@/src/features/product-management/application/CreateProduct';
 import { publishProductUseCase } from '@/src/features/product-management/application/PublishProduct';
 import { reorderImagesUseCase } from '@/src/features/product-management/application/ReorderImages';
+import { reportError } from '@/src/shared/lib/errorTracking';
 import { getSupabaseBrowserClient } from '@/src/shared/lib/supabase';
 
 const DEFAULT_IMAGE =
@@ -191,6 +192,14 @@ export function ProductProvider({ children }: { children: ReactNode }) {
             if (error) {
                 console.error('[Products] Fetch error:', error.message);
                 setState((s) => ({ ...s, loading: false, error: error.message }));
+                void reportError({
+                    error: error.message,
+                    severity: 'error',
+                    source: 'client',
+                    route: '/catalog',
+                    action: 'fetch_products',
+                    context: { module: 'ProductContext' },
+                });
                 return;
             }
 
@@ -211,6 +220,14 @@ export function ProductProvider({ children }: { children: ReactNode }) {
             clearTimeout(timeout);
             console.error('[Products] Unexpected error:', err);
             setState((s) => ({ ...s, loading: false, error: 'Error al cargar productos' }));
+            void reportError({
+                error: err,
+                severity: 'error',
+                source: 'client',
+                route: '/catalog',
+                action: 'fetch_products_unexpected',
+                context: { module: 'ProductContext' },
+            });
         }
     }, []);
 
@@ -366,6 +383,14 @@ export function ProductProvider({ children }: { children: ReactNode }) {
                 return { success: true };
             } catch (err) {
                 console.error('[Products] setProductImages crashed:', err);
+                void reportError({
+                    error: err,
+                    severity: 'error',
+                    source: 'client',
+                    route: '/admin/products',
+                    action: 'set_product_images',
+                    critical: true,
+                });
                 return { success: false, error: normalizeSupabaseError(err, 'No se pudieron guardar las imágenes') };
             }
         },
@@ -419,6 +444,15 @@ export function ProductProvider({ children }: { children: ReactNode }) {
 
                 if (error || !inserted) {
                     console.error('[Products] Insert error:', error?.message);
+                    void reportError({
+                        error: error?.message ?? 'Insert error',
+                        severity: 'error',
+                        source: 'client',
+                        route: '/admin/products/new',
+                        action: 'create_product',
+                        context: { categoryId: data.categoryId, sku: data.sku },
+                        critical: true,
+                    });
                     return { success: false, error: error?.message ?? 'No se pudo crear el producto' };
                 }
 
@@ -435,6 +469,15 @@ export function ProductProvider({ children }: { children: ReactNode }) {
                 return { success: true, id: productId };
             } catch (err) {
                 console.error('[Products] Insert crashed:', err);
+                void reportError({
+                    error: err,
+                    severity: 'fatal',
+                    source: 'client',
+                    route: '/admin/products/new',
+                    action: 'create_product_crash',
+                    context: { categoryId: data.categoryId, sku: data.sku },
+                    critical: true,
+                });
                 return { success: false, error: normalizeSupabaseError(err, 'No se pudo crear el producto') };
             }
         },
@@ -498,6 +541,15 @@ export function ProductProvider({ children }: { children: ReactNode }) {
 
                     if (error) {
                         console.error('[Products] Update error:', error.message);
+                        void reportError({
+                            error: error.message,
+                            severity: 'error',
+                            source: 'client',
+                            route: `/admin/products/${id}/edit`,
+                            action: 'update_product',
+                            context: { id },
+                            critical: true,
+                        });
                         return { success: false, error: error.message };
                     }
 
@@ -517,6 +569,15 @@ export function ProductProvider({ children }: { children: ReactNode }) {
                 return { success: true };
             } catch (err) {
                 console.error('[Products] Update crashed:', err);
+                void reportError({
+                    error: err,
+                    severity: 'fatal',
+                    source: 'client',
+                    route: `/admin/products/${id}/edit`,
+                    action: 'update_product_crash',
+                    context: { id },
+                    critical: true,
+                });
                 return { success: false, error: normalizeSupabaseError(err, 'No se pudo actualizar el producto') };
             }
         },
@@ -646,6 +707,15 @@ export function ProductProvider({ children }: { children: ReactNode }) {
 
                 if (error) {
                     console.error('[Products] Delete error:', error.message);
+                    void reportError({
+                        error: error.message,
+                        severity: 'error',
+                        source: 'client',
+                        route: '/admin/products',
+                        action: 'delete_product',
+                        context: { id },
+                        critical: true,
+                    });
                     return {
                         success: false,
                         error: imagesDeleteError
@@ -662,6 +732,15 @@ export function ProductProvider({ children }: { children: ReactNode }) {
                 return { success: true };
             } catch (err) {
                 console.error('[Products] Delete crashed:', err);
+                void reportError({
+                    error: err,
+                    severity: 'fatal',
+                    source: 'client',
+                    route: '/admin/products',
+                    action: 'delete_product_crash',
+                    context: { id },
+                    critical: true,
+                });
                 return { success: false, error: normalizeSupabaseError(err, 'No se pudo eliminar el producto') };
             }
         },

@@ -5,6 +5,16 @@ import nextTs from "eslint-config-next/typescript";
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  {
+    rules: {
+      // El proyecto usa <img> por decisión de costos/infra en Vercel.
+      "@next/next/no-img-element": "off",
+      // Código legado en transición: se permite any mientras se tipa por etapas.
+      "@typescript-eslint/no-explicit-any": "off",
+      // Se mantiene habilitado como warning para migración gradual.
+      "react-hooks/set-state-in-effect": "warn",
+    },
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:

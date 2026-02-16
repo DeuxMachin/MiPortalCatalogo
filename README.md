@@ -170,8 +170,14 @@ npm run dev
 # Construir para producción
 npm run build
 
-# Previsualizar build de producción
-npm run preview
+# Ejecutar pruebas unitarias (watch)
+npm run test
+
+# Ejecutar pruebas unitarias (una sola corrida)
+npm run test:run
+
+# Cobertura de pruebas
+npm run test:coverage
 ```
 
 ### Flujo de Trabajo de Desarrollo
@@ -181,6 +187,62 @@ npm run preview
 3. Escribir pruebas unitarias para la lógica de negocio
 4. Enviar pull requests para revisión de código
 5. Fusionar a `main` después de aprobación
+
+## Error Tracking (GlitchTip + Supabase Fallback)
+
+La app está integrada con `@sentry/nextjs` para enviar errores a GlitchTip.
+
+### Variables necesarias
+
+Definir en `.env.local`:
+
+```bash
+NEXT_PUBLIC_GLITCHTIP_DSN=<tu_dsn_glitchtip>
+GLITCHTIP_DSN=<tu_dsn_glitchtip>
+NEXT_PUBLIC_APP_ENV=development|staging|production
+APP_ENV=development|staging|production
+NEXT_PUBLIC_APP_RELEASE=<version_o_commit>
+APP_RELEASE=<version_o_commit>
+INTERNAL_APP_URL=http://localhost:3000
+```
+
+### Verificación rápida
+
+1. Levantar app con `npm run dev`.
+2. Abrir cualquier página y forzar un error (por ejemplo, throw manual en una acción).
+3. Confirmar en GlitchTip que aparece agrupado con `environment` y `release`.
+4. Si GlitchTip falla o el error es crítico en `production`, revisar fallback en Supabase (`error_registros_fallback`).
+
+## Calidad de Código (Unit Tests + CI/CD)
+
+Para mantener estabilidad en cada cambio, el proyecto ahora valida tres capas antes de integrar código:
+
+- `npm run lint` para consistencia de estilo y errores estáticos.
+- `npm run test:run` para pruebas unitarias de lógica de negocio.
+- `npm run build` para confirmar que toda la app compila correctamente.
+
+### Qué estamos probando hoy
+
+Las pruebas unitarias actuales se enfocan en lógica crítica y de bajo acoplamiento:
+
+- Orden de categorías por popularidad.
+- Política de clasificación de errores (esperados vs inesperados, severidad).
+- Cálculo de score de popularidad con pesos configurables.
+
+Esto nos da una base sólida para detectar regresiones rápidas sin depender de pruebas manuales.
+
+### Pipeline de CI
+
+Se agregó un workflow de GitHub Actions en `.github/workflows/ci.yml` que corre automáticamente en `push` y `pull request` a `main/master`.
+
+El flujo ejecuta en orden:
+
+1. Instalación de dependencias (`npm ci`)
+2. Lint
+3. Pruebas unitarias
+4. Build de producción
+
+Si cualquiera de estos pasos falla, el pipeline bloquea la integración hasta corregir el problema.
 
 ## Objetivos del Proyecto
 

@@ -163,7 +163,7 @@ export default function FilterPanelEnhanced({
                 <div className="mt-6 md:mt-10 p-4 bg-slate-900 rounded-xl text-white">
                     <p className="text-xs font-bold opacity-75 uppercase mb-2">Ayuda Tecnica</p>
                     <p className="text-sm font-medium mb-4 italic text-slate-200">
-                        "Necesitas asesoria? Te ayudamos a elegir el producto correcto."
+                        &quot;Necesitas asesoria? Te ayudamos a elegir el producto correcto.&quot;
                     </p>
                     <button className="w-full bg-orange-600 hover:bg-orange-500 py-2 rounded-lg text-xs font-bold transition-colors">
                         Contactar Ventas

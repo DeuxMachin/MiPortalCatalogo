@@ -69,7 +69,7 @@ interface FormData {
     recursos: ResourceInput[];
 }
 
-const UNIT_OPTIONS = ['ml', 'lt', 'gl', 'kg', 'g', 'mt', 'mm', 'cm', 'un', 'rollo', 'caja', 'CC'] as const;
+const UNIT_OPTIONS = ['ml', 'lt', 'gl', 'kg', 'g', 'mt', 'mm', 'cm', 'un', 'rollo', 'caja', 'CC', 'Galones','Bolsas','Rollo','gr/m2'] as const;
 
 const STOCK_OPTIONS: StockStatus[] = ['EN STOCK', 'SIN STOCK', 'A PEDIDO'];
 

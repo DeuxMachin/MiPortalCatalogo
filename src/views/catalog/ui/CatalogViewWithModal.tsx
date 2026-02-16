@@ -19,6 +19,7 @@ import { formatPrice } from '@/src/shared/lib/formatters';
 import FilterPanelEnhanced from '@/src/features/product-filter/ui/FilterPanelEnhanced';
 import ProductBookModal from '@/src/widgets/product-book-modal';
 import LoadingOverlay from '@/src/shared/ui/LoadingOverlay';
+import { reportError } from '@/src/shared/lib/errorTracking';
 import { useProducts } from '@/src/features/product-management';
 import { useCategories } from '@/src/features/category-management';
 import { useProductInteractionTracker, useProductPopularity } from '@/src/features/product-interaction';
@@ -132,6 +133,18 @@ export default function CatalogViewWithModal() {
 
     const showLoading = catsLoading && activeCategories.length === 0;
     const loadError = categoriesError || productsError;
+
+    useEffect(() => {
+        if (!loadError) return;
+        void reportError({
+            error: loadError,
+            severity: 'error',
+            source: 'client',
+            route: '/catalog',
+            action: 'catalog_load_error',
+            context: { hasCategoriesError: Boolean(categoriesError), hasProductsError: Boolean(productsError) },
+        });
+    }, [categoriesError, loadError, productsError]);
 
     const handleProductOpen = (product: Product) => {
         setSelectedProduct(product);

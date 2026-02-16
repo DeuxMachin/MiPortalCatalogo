@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { getSupabaseBrowserClient } from '@/src/shared/lib/supabase';
+import { reportError } from '@/src/shared/lib/errorTracking';
 import type { Category } from '@/src/entities/category/model/types';
 
 /** Genera un slug URL-safe a partir de un nombre. */
@@ -58,6 +59,14 @@ export function useCategories() {
             if (fetchErr) {
                 console.error('[Categories] Fetch error:', fetchErr.message);
                 setError(fetchErr.message);
+                void reportError({
+                    error: fetchErr.message,
+                    severity: 'error',
+                    source: 'client',
+                    route: '/catalog',
+                    action: 'fetch_categories',
+                    context: { module: 'useCategories' },
+                });
             } else {
                 const cats = (data as Category[]) ?? [];
                 _cache = cats;
@@ -68,6 +77,14 @@ export function useCategories() {
             clearTimeout(timeout);
             console.error('[Categories] Unexpected error:', err);
             setError('Error al cargar categorías');
+            void reportError({
+                error: err,
+                severity: 'error',
+                source: 'client',
+                route: '/catalog',
+                action: 'fetch_categories_unexpected',
+                context: { module: 'useCategories' },
+            });
         } finally {
             setLoading(false);
         }
@@ -90,6 +107,15 @@ export function useCategories() {
             if (insertErr) {
                 console.error('[Categories] Insert error:', insertErr.message);
                 setError(insertErr.message);
+                void reportError({
+                    error: insertErr.message,
+                    severity: 'error',
+                    source: 'client',
+                    route: '/admin/categories',
+                    action: 'create_category',
+                    context: { nombre },
+                    critical: true,
+                });
                 return null;
             }
             const updated = [...(categories), data as Category].sort((a, b) =>
@@ -119,6 +145,15 @@ export function useCategories() {
             if (updateErr) {
                 console.error('[Categories] Update error:', updateErr.message);
                 setError(updateErr.message);
+                void reportError({
+                    error: updateErr.message,
+                    severity: 'error',
+                    source: 'client',
+                    route: '/admin/categories',
+                    action: 'update_category',
+                    context: { id },
+                    critical: true,
+                });
                 return false;
             }
             const updated = categories
@@ -143,6 +178,15 @@ export function useCategories() {
             if (delErr) {
                 console.error('[Categories] Delete error:', delErr.message);
                 setError(delErr.message);
+                void reportError({
+                    error: delErr.message,
+                    severity: 'error',
+                    source: 'client',
+                    route: '/admin/categories',
+                    action: 'delete_category',
+                    context: { id },
+                    critical: true,
+                });
                 return false;
             }
             const updated = categories.filter((c) => c.id !== id);
