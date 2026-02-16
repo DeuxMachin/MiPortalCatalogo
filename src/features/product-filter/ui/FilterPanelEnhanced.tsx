@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Search, ChevronDown, ChevronRight, Filter } from 'lucide-react';
 import type { Category } from '@/src/entities/category/model/types';
 import type { Product } from '@/src/entities/product/model/types';
@@ -23,6 +23,13 @@ export default function FilterPanelEnhanced({
 }: FilterPanelProps) {
     const [searchTerm, setSearchTerm] = useState('');
     const [collapsedCategories, setCollapsedCategories] = useState(false);
+    const [showAllWhenSelected, setShowAllWhenSelected] = useState(false);
+
+    useEffect(() => {
+        if (activeCategoryId) {
+            setShowAllWhenSelected(false);
+        }
+    }, [activeCategoryId]);
 
     const categoriesWithCount = useMemo(() => {
         return categories.map((cat) => ({
@@ -39,13 +46,18 @@ export default function FilterPanelEnhanced({
         return [...base].sort((a, b) => compareByPopularityCategoryName(a.nombre, b.nombre));
     }, [categoriesWithCount, searchTerm]);
 
-    const panelClassName = `sticky top-16 h-[calc(100vh-64px)] bg-white border-r border-slate-200 transition-all overflow-y-auto ${
-        isOpen ? 'w-full md:w-72 opacity-100' : 'w-0 opacity-0 pointer-events-none'
+    const visibleCategories = useMemo(() => {
+        if (!activeCategoryId || showAllWhenSelected) return filteredCategories;
+        return filteredCategories.filter((cat) => cat.id === activeCategoryId);
+    }, [activeCategoryId, filteredCategories, showAllWhenSelected]);
+
+    const panelClassName = `bg-white border-b md:border-b-0 md:border-r border-slate-200 transition-all overflow-hidden md:overflow-y-auto md:sticky md:top-16 md:h-[calc(100vh-64px)] ${
+        isOpen ? 'w-full md:w-72 opacity-100 max-h-[70vh] md:max-h-none' : 'w-0 md:w-0 opacity-0 pointer-events-none max-h-0 md:max-h-none'
     }`;
 
     return (
         <aside className={panelClassName}>
-            <div className="p-6">
+            <div className="p-4 md:p-6">
                 <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-2">
                         <div className="w-9 h-9 bg-slate-900 rounded-lg flex items-center justify-center">
@@ -98,19 +110,25 @@ export default function FilterPanelEnhanced({
                             </span>
                         </button>
 
-                        {filteredCategories.length === 0 ? (
+                        {visibleCategories.length === 0 ? (
                             <p className="text-center text-xs text-slate-400 py-6">Sin resultados</p>
                         ) : (
-                            filteredCategories.map((cat) => {
+                            visibleCategories.map((cat) => {
                                 const isActive = activeCategoryId === cat.id;
+                                const isContracted = Boolean(activeCategoryId) && !isActive;
                                 return (
                                     <button
                                         key={cat.id}
-                                        onClick={() => onCategoryChange(isActive ? null : cat.id)}
-                                        className={`w-full flex items-center justify-between p-2.5 rounded-lg text-sm transition-all ${
+                                        onClick={() => {
+                                            onCategoryChange(isActive ? null : cat.id);
+                                            if (!isActive) setShowAllWhenSelected(false);
+                                        }}
+                                        className={`w-full flex items-center justify-between rounded-lg transition-all ${
                                             isActive
-                                                ? 'bg-orange-50 text-orange-700 font-bold'
-                                                : 'hover:bg-slate-50 text-slate-600'
+                                                ? 'bg-orange-50 text-orange-700 font-bold p-2.5 text-sm'
+                                                : isContracted
+                                                    ? 'hover:bg-slate-50 text-slate-500 p-1.5 text-xs opacity-70'
+                                                    : 'hover:bg-slate-50 text-slate-600 p-2.5 text-sm'
                                         }`}
                                     >
                                         <span className="flex items-center gap-3">
@@ -130,10 +148,19 @@ export default function FilterPanelEnhanced({
                                 );
                             })
                         )}
+
+                        {activeCategoryId && !showAllWhenSelected && filteredCategories.length > 1 && (
+                            <button
+                                onClick={() => setShowAllWhenSelected(true)}
+                                className="w-full mt-2 text-xs font-bold text-orange-700 hover:text-orange-600 text-left px-2"
+                            >
+                                Ver otras categorías
+                            </button>
+                        )}
                     </nav>
                 )}
 
-                <div className="mt-10 p-4 bg-slate-900 rounded-xl text-white">
+                <div className="mt-6 md:mt-10 p-4 bg-slate-900 rounded-xl text-white">
                     <p className="text-xs font-bold opacity-75 uppercase mb-2">Ayuda Tecnica</p>
                     <p className="text-sm font-medium mb-4 italic text-slate-200">
                         "Necesitas asesoria? Te ayudamos a elegir el producto correcto."

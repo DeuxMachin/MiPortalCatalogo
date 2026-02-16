@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { X, ChevronLeft, ChevronRight, Download, Info, Package, Clock, ShoppingCart } from 'lucide-react';
 import type { Product } from '@/src/entities/product/model/types';
+import { useProductInteractionTracker } from '@/src/features/product-interaction';
 import { formatPrice } from '@/src/shared/lib/formatters';
 
 interface ProductBookModalProps {
@@ -14,6 +15,7 @@ interface ProductBookModalProps {
 export default function ProductBookModal({ product, isOpen, onClose }: ProductBookModalProps) {
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [isClosing, setIsClosing] = useState(false);
+    const { trackClick } = useProductInteractionTracker();
 
     useEffect(() => {
         if (isOpen) {
@@ -77,14 +79,14 @@ export default function ProductBookModal({ product, isOpen, onClose }: ProductBo
 
     return (
         <div
-            className={`fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/55 transition-opacity duration-200 ${
+            className={`fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/55 transition-opacity duration-200 ${
                 isClosing ? 'opacity-0' : 'opacity-100'
             }`}
             onClick={handleClose}
         >
             {/* Modal Libro */}
             <div
-                className={`relative bg-white rounded-2xl shadow-xl max-w-7xl w-full max-h-[95vh] overflow-hidden transform transition-all duration-200 ${
+                className={`relative bg-white rounded-xl sm:rounded-2xl shadow-xl max-w-7xl w-full max-h-[96vh] overflow-hidden transform transition-all duration-200 ${
                     isClosing ? 'scale-95 opacity-0' : 'scale-100 opacity-100'
                 }`}
                 onClick={(e) => e.stopPropagation()}
@@ -99,9 +101,9 @@ export default function ProductBookModal({ product, isOpen, onClose }: ProductBo
                 </button>
 
                 {/* Contenedor de páginas del libro */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 h-full max-h-[95vh] overflow-y-auto overscroll-contain">
+                <div className="grid grid-cols-1 lg:grid-cols-2 h-full max-h-[96vh] overflow-y-auto overscroll-contain">
                     {/* PÁGINA IZQUIERDA - Imágenes y Info Principal */}
-                    <div className="bg-gradient-to-br from-slate-50 to-white p-8 lg:p-12 border-r border-gray-200 flex flex-col">
+                    <div className="bg-gradient-to-br from-slate-50 to-white p-4 sm:p-6 lg:p-12 border-r border-gray-200 flex flex-col">
                         {/* Badge de categoría */}
                         <div className="mb-4">
                             <span className="inline-block px-3 py-1 bg-orange-100 text-orange-700 text-xs font-bold rounded-full uppercase tracking-wide">
@@ -172,7 +174,7 @@ export default function ProductBookModal({ product, isOpen, onClose }: ProductBo
                                 <Package className="w-4 h-4" />
                                 SKU: {product.sku}
                             </div>
-                            <h1 className="text-3xl lg:text-4xl font-extrabold text-slate-900 leading-tight mb-4">
+                            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-slate-900 leading-tight mb-4">
                                 {product.title}
                             </h1>
                         </div>
@@ -184,10 +186,10 @@ export default function ProductBookModal({ product, isOpen, onClose }: ProductBo
                                     <span className="text-sm text-slate-500 font-semibold">Precio Unitario</span>
                                 </div>
                                 <div className="flex items-baseline gap-2 mb-3">
-                                    <span className="text-4xl font-extrabold text-slate-900">
+                                    <span className="text-3xl sm:text-4xl font-extrabold text-slate-900">
                                         ${formatPrice(product.price)}
                                     </span>
-                                    <span className="text-lg text-slate-500 font-semibold">{product.unit}</span>
+                                    <span className="text-base sm:text-lg text-slate-500 font-semibold">{product.unit}</span>
                                 </div>
                                 <div className="flex items-center gap-2 text-sm text-slate-600 pt-3 border-t border-orange-100">
                                     <Clock className="w-4 h-4 text-orange-600" />
@@ -231,14 +233,14 @@ export default function ProductBookModal({ product, isOpen, onClose }: ProductBo
                     </div>
 
                     {/* PÁGINA DERECHA - Ficha Técnica y Recursos */}
-                    <div className="bg-white p-8 lg:p-12">
+                    <div className="bg-white p-4 sm:p-6 lg:p-12">
                         {/* Header Ficha Técnica */}
                         <div className="mb-8">
                             <div className="flex items-center gap-3 mb-2">
                                 <div className="w-10 h-10 bg-orange-600 rounded-xl flex items-center justify-center">
                                     <Package className="w-6 h-6 text-white" />
                                 </div>
-                                <h2 className="text-2xl font-extrabold text-slate-900">Ficha Técnica Completa</h2>
+                                <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900">Ficha Técnica Completa</h2>
                             </div>
                             <p className="text-slate-600 text-sm">
                                 Especificaciones detalladas y características del producto
@@ -319,6 +321,9 @@ export default function ProductBookModal({ product, isOpen, onClose }: ProductBo
                                             href={doc.url}
                                             target="_blank"
                                             rel="noreferrer"
+                                            onClick={() => {
+                                                void trackClick(product.id, 'download_resource');
+                                            }}
                                             className="flex items-center justify-between p-4 bg-slate-50 border border-slate-200 rounded-xl hover:bg-white hover:border-orange-400 hover:shadow-md transition-all group"
                                         >
                                             <div className="flex items-center gap-3">
@@ -339,8 +344,11 @@ export default function ProductBookModal({ product, isOpen, onClose }: ProductBo
                         {/* CTA Button */}
                         <div className="bg-white pt-6 border-t border-gray-200">
                             <button
-                                className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-3 transition-colors"
-                                onClick={handleClose}
+                                className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-3.5 sm:py-4 rounded-xl flex items-center justify-center gap-3 transition-colors"
+                                onClick={() => {
+                                    void trackClick(product.id, 'request_quote');
+                                    handleClose();
+                                }}
                             >
                                 <ShoppingCart className="w-5 h-5" />
                                 Solicitar Cotización

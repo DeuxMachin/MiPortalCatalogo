@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
     ArrowRight,
@@ -21,7 +21,7 @@ import ProductBookModal from '@/src/widgets/product-book-modal';
 import LoadingOverlay from '@/src/shared/ui/LoadingOverlay';
 import { useProducts } from '@/src/features/product-management';
 import { useCategories } from '@/src/features/category-management';
-import { getCategoryPopularityRank } from '@/src/shared/lib/categoryPopularityOrder';
+import { useProductInteractionTracker, useProductPopularity } from '@/src/features/product-interaction';
 
 type ViewMode = 'grid' | 'list';
 type SortOption = 'popular' | 'price-asc' | 'price-desc' | 'name-asc';
@@ -43,6 +43,8 @@ export default function CatalogViewWithModal() {
     const router = useRouter();
     const { products: allProducts, error: productsError } = useProducts();
     const { activeCategories, loading: catsLoading, error: categoriesError } = useCategories();
+    const { trackView, trackClick } = useProductInteractionTracker();
+    const { popularityByProductId } = useProductPopularity(allProducts);
     const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
     const [viewMode, setViewMode] = useState<ViewMode>('grid');
     const [searchQuery, setSearchQuery] = useState('');
@@ -50,7 +52,15 @@ export default function CatalogViewWithModal() {
     const [sortBy, setSortBy] = useState<SortOption>('popular');
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const syncSidebar = () => setIsSidebarOpen(window.innerWidth >= 768);
+        syncSidebar();
+        window.addEventListener('resize', syncSidebar);
+        return () => window.removeEventListener('resize', syncSidebar);
+    }, []);
 
     const categoryNameById = useMemo(() => {
         return new Map(activeCategories.map((c) => [c.id, c.nombre] as const));
@@ -59,6 +69,12 @@ export default function CatalogViewWithModal() {
     const filteredProducts = useMemo(() => {
         const getCategoryName = (product: Product) =>
             categoryNameById.get(String(product.categoryId)) ?? product.category ?? 'Sin categoria';
+        const getPopularityScore = (product: Product) => popularityByProductId[product.id]?.score ?? 0;
+        const getCreatedAtTime = (product: Product) => {
+            if (!product.createdAt) return 0;
+            const parsed = Date.parse(product.createdAt);
+            return Number.isNaN(parsed) ? 0 : parsed;
+        };
         let products = allProducts.filter((p) => p.isPublished);
 
         if (activeCategoryId) {
@@ -95,19 +111,20 @@ export default function CatalogViewWithModal() {
                 break;
             case 'popular':
             default:
-                if (!activeCategoryId) {
-                    products = [...products].sort((a, b) => {
-                        const aRank = getCategoryPopularityRank(getCategoryName(a));
-                        const bRank = getCategoryPopularityRank(getCategoryName(b));
-                        if (aRank !== bRank) return aRank - bRank;
-                        return a.title.localeCompare(b.title, 'es', { sensitivity: 'base' });
-                    });
-                }
+                products = [...products].sort((a, b) => {
+                    const scoreDiff = getPopularityScore(b) - getPopularityScore(a);
+                    if (scoreDiff !== 0) return scoreDiff;
+
+                    const createdDiff = getCreatedAtTime(b) - getCreatedAtTime(a);
+                    if (createdDiff !== 0) return createdDiff;
+
+                    return a.title.localeCompare(b.title, 'es', { sensitivity: 'base' });
+                });
                 break;
         }
 
         return products;
-    }, [activeCategoryId, allProducts, categoryNameById, searchQuery, sortBy, stockFilter]);
+    }, [activeCategoryId, allProducts, categoryNameById, popularityByProductId, searchQuery, sortBy, stockFilter]);
 
     const activeCategoryName = activeCategoryId
         ? activeCategories.find((c) => c.id === activeCategoryId)?.nombre
@@ -119,6 +136,11 @@ export default function CatalogViewWithModal() {
     const handleProductOpen = (product: Product) => {
         setSelectedProduct(product);
         setIsModalOpen(true);
+        void trackView(product.id);
+    };
+
+    const handleProductIntentClick = (product: Product, action: string) => {
+        void trackClick(product.id, action);
     };
 
     const handleCloseModal = () => {
@@ -141,7 +163,7 @@ export default function CatalogViewWithModal() {
             <LoadingOverlay visible={showLoading} message="Cargando catalogo..." />
 
             <div className="w-full px-0 md:px-2 py-0">
-                <div className={`flex gap-0 transition-opacity duration-500 ${showLoading ? 'opacity-0' : 'opacity-100'}`}>
+                <div className={`flex flex-col md:flex-row gap-0 transition-opacity duration-500 ${showLoading ? 'opacity-0' : 'opacity-100'}`}>
                     <FilterPanelEnhanced
                         categories={activeCategories}
                         activeCategoryId={activeCategoryId}
@@ -152,7 +174,7 @@ export default function CatalogViewWithModal() {
 
                     <main className="flex-1 min-w-0 p-3 md:p-5 lg:p-6">
                         <div className="mb-6 bg-white border border-slate-200 rounded-2xl p-4 md:p-5">
-                            <div className="flex items-center justify-between gap-4">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
                                 <div className="flex items-center gap-2">
                                     <button
                                         onClick={() => setIsSidebarOpen(!isSidebarOpen)}
@@ -163,18 +185,18 @@ export default function CatalogViewWithModal() {
                                     </button>
                                     <div className="h-4 w-px bg-slate-300 mx-2" />
                                     <div>
-                                        <h1 className="text-lg font-bold text-slate-800">
+                                        <h1 className="text-xl md:text-lg lg:text-xl font-bold text-slate-800 leading-tight">
                                             {activeCategoryName ?? 'Todos los Productos'}
                                         </h1>
-                                        <p className="text-sm font-normal text-slate-400">
+                                        <p className="text-sm md:text-sm lg:text-base font-normal text-slate-400">
                                             {filteredProducts.length} resultado{filteredProducts.length === 1 ? '' : 's'}
                                         </p>
                                     </div>
                                 </div>
 
-                                <div className="flex items-center gap-3 shrink-0">
+                                <div className="flex items-center gap-2 sm:gap-3 shrink-0 self-end sm:self-auto">
                                     <select
-                                        className="hidden md:block text-xs font-semibold text-slate-600 bg-white border border-slate-200 rounded-lg px-3 py-2"
+                                        className="text-xs md:text-sm font-semibold text-slate-600 bg-white border border-slate-200 rounded-lg px-3 py-2"
                                         value={sortBy}
                                         onChange={(e) => setSortBy(e.target.value as SortOption)}
                                         aria-label="Ordenar"
@@ -203,19 +225,19 @@ export default function CatalogViewWithModal() {
                                 </div>
                             </div>
 
-                            <div className="relative max-w-2xl mt-4">
+                            <div className="relative w-full max-w-2xl mt-4">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                                 <input
                                     type="text"
                                     placeholder="Buscar por SKU, nombre o categoria..."
-                                    className="w-full pl-10 pr-4 py-2.5 bg-slate-100 border border-transparent focus:border-orange-400 focus:bg-white rounded-full outline-none transition-all text-sm"
+                                    className="w-full pl-10 pr-4 py-2.5 md:py-3 bg-slate-100 border border-transparent focus:border-orange-400 focus:bg-white rounded-full outline-none transition-all text-sm md:text-base"
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                 />
                             </div>
 
                             <div className="flex items-center gap-3 overflow-x-auto mt-3">
-                                <span className="text-xs font-bold text-slate-500 uppercase tracking-wide whitespace-nowrap">Filtros:</span>
+                                <span className="text-xs md:text-sm font-bold text-slate-500 uppercase tracking-wide whitespace-nowrap">Filtros:</span>
                                 {STOCK_FILTERS.map((filter) => (
                                     <FilterChip
                                         key={filter.value}
@@ -266,6 +288,7 @@ export default function CatalogViewWithModal() {
                                         viewMode={viewMode}
                                         categoryLabel={getCategoryName(product)}
                                         onOpen={() => handleProductOpen(product)}
+                                        onIntentClick={(action) => handleProductIntentClick(product, action)}
                                     />
                                 ))}
                             </div>
@@ -297,7 +320,7 @@ function FilterChip({
     return (
         <button
             onClick={onClick}
-            className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-2 border ${
+            className={`px-3 py-1.5 rounded-full text-xs md:text-sm font-semibold whitespace-nowrap transition-all flex items-center gap-2 border ${
                 active
                     ? 'bg-orange-600 border-orange-600 text-white shadow-md shadow-orange-200'
                     : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
@@ -318,7 +341,7 @@ function StockBadge({ stock }: { stock: StockStatus }) {
                 : 'bg-rose-100 text-rose-700';
 
     return (
-        <span className={`inline-flex w-fit items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${style}`}>
+        <span className={`inline-flex w-fit items-center px-2.5 py-0.5 rounded text-[10px] md:text-[11px] font-bold uppercase tracking-wider ${style}`}>
             {stock}
         </span>
     );
@@ -329,17 +352,19 @@ function CatalogProductCard({
     viewMode,
     categoryLabel,
     onOpen,
+    onIntentClick,
 }: {
     product: Product;
     viewMode: ViewMode;
     categoryLabel: string;
     onOpen: () => void;
+    onIntentClick: (action: string) => void;
 }) {
     if (viewMode === 'list') {
         return (
             <div
                 onClick={onOpen}
-                className="group bg-white border border-slate-200 rounded-xl p-3 flex items-center gap-4 hover:shadow-lg hover:border-orange-200 transition-all cursor-pointer"
+                className="group bg-white border border-slate-200 rounded-xl p-3 md:p-4 flex items-center gap-4 hover:shadow-lg hover:border-orange-200 transition-all cursor-pointer"
             >
                 <div className="w-16 h-16 rounded-lg bg-slate-50 overflow-hidden shrink-0 border border-slate-100">
                     <img
@@ -350,20 +375,27 @@ function CatalogProductCard({
                 </div>
                 <div className="flex-1 min-w-0">
                     <div className="mb-0.5">
-                        <span className="text-[11px] font-semibold text-orange-700 bg-orange-50 px-2.5 py-0.5 rounded-full w-fit">
+                        <span className="text-xs md:text-sm font-semibold text-orange-700 bg-orange-50 px-2.5 py-0.5 rounded-full w-fit">
                             Categoria: {categoryLabel}
                         </span>
                     </div>
-                    <h3 className="font-bold text-slate-800 text-base truncate">{product.title}</h3>
-                    <p className="text-xs text-slate-600">{product.presentacion ?? product.unit}</p>
+                    <h3 className="font-bold text-slate-800 text-base md:text-lg truncate">{product.title}</h3>
+                    <p className="text-sm text-slate-600">{product.presentacion ?? product.unit}</p>
                 </div>
                 <div className="text-right shrink-0">
                     {product.precioVisible !== false ? (
-                        <p className="text-base font-bold text-slate-800">${formatPrice(product.price)}</p>
+                        <p className="text-lg md:text-xl font-bold text-slate-800">${formatPrice(product.price)}</p>
                     ) : (
-                        <p className="text-base font-bold text-orange-700">Consultar precio</p>
+                        <p className="text-base md:text-lg font-bold text-orange-700">Consultar precio</p>
                     )}
-                    <button className="text-[10px] font-bold text-slate-400 hover:text-orange-600 transition-colors uppercase tracking-widest mt-1">
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onIntentClick('quick_view');
+                            onOpen();
+                        }}
+                        className="text-[10px] font-bold text-slate-400 hover:text-orange-600 transition-colors uppercase tracking-widest mt-1"
+                    >
                         Ficha rapida
                     </button>
                 </div>
@@ -392,37 +424,44 @@ function CatalogProductCard({
                 </div>
             </div>
 
-            <div className="p-5 flex-1 flex flex-col">
+            <div className="p-5 md:p-6 flex-1 flex flex-col">
                 <div className="mb-3">
                     <div className="mb-1.5">
-                        <span className="text-[11px] font-semibold text-orange-700 bg-orange-50 px-2.5 py-0.5 rounded-full w-fit">
+                        <span className="text-xs md:text-sm font-semibold text-orange-700 bg-orange-50 px-2.5 py-0.5 rounded-full w-fit">
                             Categoria: {categoryLabel}
                         </span>
                     </div>
-                    <h3 className="font-bold text-slate-900 text-[1.08rem] leading-tight group-hover:text-orange-700 transition-colors line-clamp-2">
+                    <h3 className="font-bold text-slate-900 text-lg md:text-xl leading-tight group-hover:text-orange-700 transition-colors line-clamp-2">
                         {product.title}
                     </h3>
                 </div>
 
                 <div className="mb-4">
-                    <p className="text-[0.95rem] text-slate-600 line-clamp-2 italic mb-2">
+                    <p className="text-base text-slate-600 line-clamp-2 italic mb-2">
                         {product.description}
                     </p>
-                    <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                    <div className="text-sm font-semibold text-slate-500 uppercase tracking-wide">
                         {product.presentacion ?? product.unit}
                     </div>
                 </div>
 
                 <div className="mt-auto pt-4 border-t border-slate-50 flex items-center justify-between gap-4">
                     <div className="shrink-0">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Cotizacion</p>
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-tighter">Cotizacion</p>
                         {product.precioVisible !== false ? (
-                            <p className="font-black text-slate-900 text-base whitespace-nowrap">${formatPrice(product.price)}</p>
+                            <p className="font-black text-slate-900 text-lg md:text-xl whitespace-nowrap">${formatPrice(product.price)}</p>
                         ) : (
-                            <p className="font-black text-orange-700 text-base whitespace-nowrap">Consultar precio</p>
+                            <p className="font-black text-orange-700 text-base md:text-lg whitespace-nowrap">Consultar precio</p>
                         )}
                     </div>
-                    <button className="flex-1 bg-orange-50 text-orange-700 text-[11px] font-bold py-2 rounded-lg hover:bg-orange-600 hover:text-white transition-all">
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onIntentClick('view_product_button');
+                            onOpen();
+                        }}
+                        className="flex-1 bg-orange-50 text-orange-700 text-[10px] md:text-[11px] font-bold py-1.5 md:py-2 rounded-lg hover:bg-orange-600 hover:text-white transition-all"
+                    >
                         Ver producto
                     </button>
                 </div>

@@ -49,6 +49,11 @@ export interface Product {
     notaTecnica?: string;
     /** Recursos descargables */
     recursos?: ProductResource[];
+    createdAt?: string;
+    views30d?: number;
+    clicks30d?: number;
+    favs30d?: number;
+    popularityScore?: number;
 }
 
 /** Producto relacionado (vista reducida). */
