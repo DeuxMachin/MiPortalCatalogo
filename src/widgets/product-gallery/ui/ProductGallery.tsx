@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { X } from 'lucide-react';
+import { Maximize2, X } from 'lucide-react';
 
 interface ProductGalleryProps {
     images: string[];
@@ -12,8 +12,10 @@ interface ProductGalleryProps {
 export default function ProductGallery({ images, title, stockLabel }: ProductGalleryProps) {
     const [activeIdx, setActiveIdx] = useState(0);
     const [hoverZoom, setHoverZoom] = useState(false);
-    const [zoomPos, setZoomPos] = useState({ x: 50, y: 50 });
+    const [zoomPos, setZoomPos] = useState({ x: 0, y: 0, width: 0, height: 0 });
     const [open, setOpen] = useState(false);
+    const LENS_SIZE = 180;
+    const LENS_ZOOM = 2.4;
 
     const activeSrc = images[activeIdx];
     const safeImages = useMemo(() => (images ?? []).filter(Boolean).slice(0, 4), [images]);
@@ -27,11 +29,16 @@ export default function ProductGallery({ images, title, stockLabel }: ProductGal
                 onMouseLeave={() => setHoverZoom(false)}
                 onMouseMove={(e) => {
                     const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
-                    const x = ((e.clientX - rect.left) / rect.width) * 100;
-                    const y = ((e.clientY - rect.top) / rect.height) * 100;
-                    setZoomPos({ x: Math.max(0, Math.min(100, x)), y: Math.max(0, Math.min(100, y)) });
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
+                    setZoomPos({
+                        x: Math.max(0, Math.min(rect.width, x)),
+                        y: Math.max(0, Math.min(rect.height, y)),
+                        width: rect.width,
+                        height: rect.height,
+                    });
                 }}
-                onClick={() => setOpen(true)}
+                onDoubleClick={() => setOpen(true)}
                 role="button"
                 tabIndex={0}
                 onKeyDown={(e) => e.key === 'Enter' && setOpen(true)}
@@ -40,13 +47,25 @@ export default function ProductGallery({ images, title, stockLabel }: ProductGal
                 <img
                     src={activeSrc}
                     alt={`${title} - imagen ${activeIdx + 1}`}
-                    className="absolute inset-0 w-full h-full object-cover transition-transform duration-200"
-                    style={{
-                        transformOrigin: `${zoomPos.x}% ${zoomPos.y}%`,
-                        transform: hoverZoom ? 'scale(1.8)' : 'scale(1)',
-                    }}
+                    className="absolute inset-0 w-full h-full object-cover"
                     loading="eager"
                 />
+
+                {hoverZoom && !!activeSrc && (
+                    <div
+                        className="pointer-events-none absolute rounded-full border-2 border-white/90 shadow-2xl hidden md:block"
+                        style={{
+                            width: `${LENS_SIZE}px`,
+                            height: `${LENS_SIZE}px`,
+                            left: `${zoomPos.x - LENS_SIZE / 2}px`,
+                            top: `${zoomPos.y - LENS_SIZE / 2}px`,
+                            backgroundImage: `url(${activeSrc})`,
+                            backgroundRepeat: 'no-repeat',
+                            backgroundSize: `${zoomPos.width * LENS_ZOOM}px ${zoomPos.height * LENS_ZOOM}px`,
+                            backgroundPosition: `${-(zoomPos.x * LENS_ZOOM - LENS_SIZE / 2)}px ${-(zoomPos.y * LENS_ZOOM - LENS_SIZE / 2)}px`,
+                        }}
+                    />
+                )}
                 {stockLabel && (
                     <div className="absolute top-5 left-5">
                         <span className="bg-emerald-600 text-white text-[10px] font-black px-3 py-1.5 rounded-lg shadow-lg uppercase tracking-widest flex items-center gap-2">
@@ -55,6 +74,19 @@ export default function ProductGallery({ images, title, stockLabel }: ProductGal
                         </span>
                     </div>
                 )}
+
+                <button
+                    type="button"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        setOpen(true);
+                    }}
+                    className="absolute top-5 right-5 bg-black/55 hover:bg-black/70 text-white text-xs font-semibold px-3 py-2 rounded-lg backdrop-blur-sm inline-flex items-center gap-2 transition-colors"
+                    aria-label="Expandir imagen"
+                    title="Expandir imagen"
+                >
+                    <Maximize2 className="w-4 h-4" /> Expandir
+                </button>
             </div>
 
             {/* Miniaturas */}

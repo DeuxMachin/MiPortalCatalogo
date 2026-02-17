@@ -1,28 +1,26 @@
 'use client';
 
 import { useEffect, type ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/src/features/auth';
 import Logo from '@/src/shared/ui/Logo';
-import { Package, LayoutDashboard, LogOut, ArrowLeft } from 'lucide-react';
+import { Package, LogOut, ArrowLeft } from 'lucide-react';
 
 interface AdminNavItem {
     label: string;
     href: string;
     icon: typeof Package;
-    active?: boolean;
-    disabled?: boolean;
 }
 
 const ADMIN_NAV: AdminNavItem[] = [
-    { label: 'Productos', href: '/admin', icon: Package, active: true },
-    { label: 'Categorías', href: '#', icon: LayoutDashboard, disabled: true },
+    { label: 'Productos', href: '/admin', icon: Package },
 ];
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
     const { isAuthenticated, isInitialising, user, logout } = useAuth();
     const router = useRouter();
+    const pathname = usePathname();
 
     useEffect(() => {
         if (!isInitialising && !isAuthenticated) {
@@ -59,28 +57,18 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                 <nav className="flex-1 p-3 space-y-1">
                     {ADMIN_NAV.map((item) => {
                         const Icon = item.icon;
+                        const isActive = pathname === item.href || pathname.startsWith('/admin/products');
                         const cls = `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all
-                  ${item.disabled
-                                ? 'text-slate-300 cursor-not-allowed'
-                                : item.active
-                                    ? 'text-orange-600 bg-orange-50'
-                                    : 'text-slate-600 hover:text-orange-600 hover:bg-orange-50'}`;
+                  ${isActive
+                                ? 'text-orange-600 bg-orange-50'
+                                : 'text-slate-600 hover:text-orange-600 hover:bg-orange-50'}`;
                         const inner = (
                             <>
                                 <Icon className="w-4 h-4" />
                                 {item.label}
-                                {item.disabled && (
-                                    <span className="ml-auto text-[10px] bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded font-medium">
-                                        Pronto
-                                    </span>
-                                )}
                             </>
                         );
-                        return item.disabled ? (
-                            <span key={item.label} className={cls}>{inner}</span>
-                        ) : (
-                            <Link key={item.label} href={item.href} className={cls}>{inner}</Link>
-                        );
+                        return <Link key={item.label} href={item.href} className={cls}>{inner}</Link>;
                     })}
                 </nav>
 
@@ -126,25 +114,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                         {user?.name?.charAt(0) ?? 'U'}
                     </div>
                 </div>
-            </div>
-
-            {/* Tab bar mobile */}
-            <div className="lg:hidden bg-white border-b border-gray-100 px-4 flex gap-1">
-                {ADMIN_NAV.map((item) => {
-                    const Icon = item.icon;
-                    const cls = `flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-all
-                ${item.disabled
-                            ? 'text-slate-300 border-transparent cursor-not-allowed'
-                            : item.active
-                                ? 'text-orange-600 border-orange-600'
-                                : 'text-slate-500 border-transparent hover:text-orange-600'}`;
-                    const inner = (<><Icon className="w-4 h-4" />{item.label}</>);
-                    return item.disabled ? (
-                        <span key={item.label} className={cls}>{inner}</span>
-                    ) : (
-                        <Link key={item.label} href={item.href} className={cls}>{inner}</Link>
-                    );
-                })}
             </div>
 
             {/* Content */}

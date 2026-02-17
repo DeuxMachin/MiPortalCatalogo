@@ -70,7 +70,7 @@ function ListCard({ product, onClick }: Omit<ProductCardProps, 'viewMode'>) {
                 <img
                     src={product.images[0]}
                     alt={product.title}
-                    className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    className="absolute inset-0 w-full h-full object-cover"
                     loading="lazy"
                 />
             </div>
@@ -152,7 +152,7 @@ function GridCard({ product, onClick }: Omit<ProductCardProps, 'viewMode'>) {
                 <img
                     src={product.images[0]}
                     alt={product.title}
-                    className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    className="absolute inset-0 w-full h-full object-cover"
                     loading="lazy"
                 />
                 <div className="absolute top-3 left-3">

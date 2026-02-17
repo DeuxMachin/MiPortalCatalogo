@@ -9,6 +9,7 @@ type ProductContextDeps = {
         updates: Partial<Omit<Product, 'id'>>,
         options?: { refetch?: boolean },
     ) => Promise<{ success: boolean; error?: string; id?: string }>;
+    deleteProductRecord: (id: string) => Promise<{ success: boolean; error?: string }>;
 };
 
 export class SupabaseProductRepository implements ProductRepository {
@@ -43,5 +44,9 @@ export class SupabaseProductRepository implements ProductRepository {
         }
 
         return this.deps.updateProductRecord(id, { images: uploadedImages }, { refetch: true });
+    }
+
+    async deleteProduct(id: string) {
+        return this.deps.deleteProductRecord(id);
     }
 }

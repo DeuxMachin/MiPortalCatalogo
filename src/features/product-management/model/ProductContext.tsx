@@ -12,6 +12,7 @@ import {
 } from 'react';
 import type { Product } from '@/src/entities/product/model/types';
 import { createProductUseCase } from '@/src/features/product-management/application/CreateProduct';
+import { deleteProductUseCase } from '@/src/features/product-management/application/DeleteProduct';
 import { publishProductUseCase } from '@/src/features/product-management/application/PublishProduct';
 import { reorderImagesUseCase } from '@/src/features/product-management/application/ReorderImages';
 import { reportError } from '@/src/shared/lib/errorTracking';
@@ -398,7 +399,9 @@ export function ProductProvider({ children }: { children: ReactNode }) {
     );
 
     useEffect(() => {
-        fetchProducts();
+        queueMicrotask(() => {
+            void fetchProducts();
+        });
     }, [fetchProducts]);
 
     const addProductCore = useCallback(
@@ -584,87 +587,7 @@ export function ProductProvider({ children }: { children: ReactNode }) {
         [setProductImagesCore, state.products, triggerRefetch],
     );
 
-    const productRepository = useMemo(
-        () => ({
-            createProduct: addProductCore,
-            updateProduct: updateProductCore,
-            setProductImages: setProductImagesCore,
-        }),
-        [addProductCore, updateProductCore, setProductImagesCore],
-    );
-
-    const setProductImages = useCallback(
-        async (id: string, imageInputs: ProductImageInput[]): Promise<ProductResult> => {
-            return reorderImagesUseCase(productRepository, id, imageInputs);
-        },
-        [productRepository],
-    );
-
-    const addProduct = useCallback(
-        async (data: Omit<Product, 'id'>, imageInputs?: ProductImageInput[]): Promise<ProductResult> => {
-            return createProductUseCase(
-                productRepository,
-                {
-                    title: data.title,
-                    sku: data.sku,
-                    price: data.price,
-                    categoryId: data.categoryId,
-                    description: data.description,
-                    stock: data.stock,
-                    isPublished: data.isPublished,
-                    precioVisible: data.precioVisible,
-                    unit: data.unit,
-                    color: data.color,
-                    material: data.material,
-                    contenido: data.contenido,
-                    unidadMedida: data.unidadMedida,
-                    presentacion: data.presentacion,
-                    pesoKg: data.pesoKg,
-                    altoMm: data.altoMm,
-                    anchoMm: data.anchoMm,
-                    largoMm: data.largoMm,
-                    specs: data.specs,
-                    fullSpecs: data.fullSpecs,
-                    quickSpecs: data.quickSpecs,
-                    notaTecnica: data.notaTecnica,
-                    recursos: data.recursos,
-                },
-                (imageInputs ?? data.images ?? []) as ProductImageInput[],
-            );
-        },
-        [productRepository],
-    );
-
-    const updateProduct = useCallback(
-        async (id: string, updates: Partial<Omit<Product, 'id'>>, options?: UpdateOptions): Promise<ProductResult> => {
-            const imageInputs = updates.images as unknown as ProductImageInput[] | undefined;
-            const { images: _images, ...updatesWithoutImages } = updates as Partial<Omit<Product, 'id'>> & {
-                images?: ProductImageInput[];
-            };
-
-            const updateKeys = Object.keys(updatesWithoutImages);
-            const onlyPublishToggle =
-                updateKeys.length === 1 &&
-                updateKeys[0] === 'isPublished' &&
-                typeof updatesWithoutImages.isPublished === 'boolean';
-
-            const baseResult = onlyPublishToggle
-                ? await publishProductUseCase(productRepository, id, updatesWithoutImages.isPublished as boolean)
-                : await productRepository.updateProduct(id, updatesWithoutImages, options);
-
-            if (!baseResult.success) return baseResult;
-
-            if (imageInputs !== undefined) {
-                const imageResult = await reorderImagesUseCase(productRepository, id, imageInputs);
-                if (!imageResult.success) return imageResult;
-            }
-
-            return baseResult;
-        },
-        [productRepository],
-    );
-
-    const deleteProduct = useCallback(
+    const deleteProductCore = useCallback(
         async (id: string): Promise<ProductResult> => {
             try {
                 let imagesDeleteError: string | null = null;
@@ -745,6 +668,94 @@ export function ProductProvider({ children }: { children: ReactNode }) {
             }
         },
         [triggerRefetch],
+    );
+
+    const productRepository = useMemo(
+        () => ({
+            createProduct: addProductCore,
+            updateProduct: updateProductCore,
+            setProductImages: setProductImagesCore,
+            deleteProduct: deleteProductCore,
+        }),
+        [addProductCore, updateProductCore, setProductImagesCore, deleteProductCore],
+    );
+
+    const setProductImages = useCallback(
+        async (id: string, imageInputs: ProductImageInput[]): Promise<ProductResult> => {
+            return reorderImagesUseCase(productRepository, id, imageInputs);
+        },
+        [productRepository],
+    );
+
+    const addProduct = useCallback(
+        async (data: Omit<Product, 'id'>, imageInputs?: ProductImageInput[]): Promise<ProductResult> => {
+            return createProductUseCase(
+                productRepository,
+                {
+                    title: data.title,
+                    sku: data.sku,
+                    price: data.price,
+                    categoryId: data.categoryId,
+                    description: data.description,
+                    stock: data.stock,
+                    isPublished: data.isPublished,
+                    precioVisible: data.precioVisible,
+                    unit: data.unit,
+                    color: data.color,
+                    material: data.material,
+                    contenido: data.contenido,
+                    unidadMedida: data.unidadMedida,
+                    presentacion: data.presentacion,
+                    pesoKg: data.pesoKg,
+                    altoMm: data.altoMm,
+                    anchoMm: data.anchoMm,
+                    largoMm: data.largoMm,
+                    specs: data.specs,
+                    fullSpecs: data.fullSpecs,
+                    quickSpecs: data.quickSpecs,
+                    notaTecnica: data.notaTecnica,
+                    recursos: data.recursos,
+                },
+                (imageInputs ?? data.images ?? []) as ProductImageInput[],
+            );
+        },
+        [productRepository],
+    );
+
+    const updateProduct = useCallback(
+        async (id: string, updates: Partial<Omit<Product, 'id'>>, options?: UpdateOptions): Promise<ProductResult> => {
+            const { images, ...updatesWithoutImages } = updates as Partial<Omit<Product, 'id'>> & {
+                images?: ProductImageInput[];
+            };
+            const imageInputs = images as ProductImageInput[] | undefined;
+
+            const updateKeys = Object.keys(updatesWithoutImages);
+            const onlyPublishToggle =
+                updateKeys.length === 1 &&
+                updateKeys[0] === 'isPublished' &&
+                typeof updatesWithoutImages.isPublished === 'boolean';
+
+            const baseResult = onlyPublishToggle
+                ? await publishProductUseCase(productRepository, id, updatesWithoutImages.isPublished as boolean)
+                : await productRepository.updateProduct(id, updatesWithoutImages, options);
+
+            if (!baseResult.success) return baseResult;
+
+            if (imageInputs !== undefined) {
+                const imageResult = await reorderImagesUseCase(productRepository, id, imageInputs);
+                if (!imageResult.success) return imageResult;
+            }
+
+            return baseResult;
+        },
+        [productRepository],
+    );
+
+    const deleteProduct = useCallback(
+        async (id: string): Promise<ProductResult> => {
+            return deleteProductUseCase(productRepository, id);
+        },
+        [productRepository],
     );
 
     const getProduct = useCallback(

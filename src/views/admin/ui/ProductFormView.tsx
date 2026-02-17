@@ -21,12 +21,13 @@ import {
     ShieldCheck,
     Droplets,
     Info,
-    Download,
     Palette,
     Ruler,
     Package,
     Weight,
     Layers,
+    Maximize2,
+    X,
 } from 'lucide-react';
 import { useProducts } from '@/src/features/product-management';
 import { useCategories } from '@/src/features/category-management';
@@ -166,8 +167,10 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
     const [saved, setSaved] = useState(false);
     const [saveError, setSaveError] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
+    const [activeImageSlot, setActiveImageSlot] = useState(0);
     const [activePreviewImageIdx, setActivePreviewImageIdx] = useState(0);
     const [specsOpen, setSpecsOpen] = useState(false);
+    const [editorImageExpanded, setEditorImageExpanded] = useState(false);
 
     const { categories } = useCategories();
     const categoryName = categories.find((c) => c.id === form.categoryId)?.nombre ?? '';
@@ -403,7 +406,7 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
 
             const originalUrls = (editProduct?.images ?? []).slice(0, 4);
             const currentUrls = form.images.map((s) => s.file ? '__file__' : (s.url?.trim() ?? '')).slice(0, 4);
-            const imagesChanged = form.images.some((s, idx) => !!s.file) ||
+            const imagesChanged = form.images.some((s) => !!s.file) ||
                 currentUrls.some((u, idx) => u !== (originalUrls[idx] ?? ''));
 
             const result = isEditing && editProduct
@@ -437,57 +440,57 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
 
     // --- FORM SECTION ---
     const FormSection = (
-        <div className="space-y-6">
+        <div className="space-y-8">
             {/* Info General */}
-            <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
-                <div className="px-6 py-4 border-b border-gray-100 bg-slate-50/50">
-                    <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                        <Sparkles className="w-4 h-4 text-orange-500" /> Información General
+            <div className="bg-white border border-gray-200 rounded-3xl overflow-hidden shadow-sm">
+                <div className="px-7 py-5 border-b border-gray-100 bg-slate-50/50">
+                    <h3 className="text-base font-bold text-slate-800 flex items-center gap-2.5">
+                        <Sparkles className="w-5 h-5 text-orange-500" /> Información General
                     </h3>
                 </div>
-                <div className="p-6 space-y-4">
+                <div className="p-7 space-y-5">
                     <div>
-                        <label className="block text-sm font-semibold text-slate-600 mb-1.5">Nombre del Producto</label>
+                        <label className="block text-base font-semibold text-slate-600 mb-2">Nombre del Producto</label>
                         <input
                             type="text"
                             value={form.title}
                             onChange={(e) => updateField('title', e.target.value)}
                             placeholder="Ej: Saco Cemento Extra-Fuerte 25kg"
-                            className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                            className="w-full px-4 py-3.5 border border-gray-200 rounded-2xl text-base focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                         />
                     </div>
 
                     <div>
-                        <label className="block text-sm font-semibold text-slate-600 mb-1.5">SKU</label>
+                        <label className="block text-base font-semibold text-slate-600 mb-2">SKU</label>
                         <input
                             type="text"
                             value={form.sku}
                             onChange={(e) => updateField('sku', e.target.value)}
                             placeholder="Se genera automáticamente si está vacío"
-                            className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                            className="w-full px-4 py-3.5 border border-gray-200 rounded-2xl text-base focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                         />
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                         <div>
-                            <label className="block text-sm font-semibold text-slate-600 mb-1.5">Precio CLP</label>
+                            <label className="block text-base font-semibold text-slate-600 mb-2">Precio CLP</label>
                             <div className="relative">
-                                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-slate-400 font-semibold">$</span>
+                                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-base text-slate-400 font-semibold">$</span>
                                 <input
                                     type="number"
                                     value={form.price}
                                     onChange={(e) => updateField('price', e.target.value)}
                                     placeholder="8490"
-                                    className="w-full pl-8 pr-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                    className="w-full pl-8 pr-4 py-3.5 border border-gray-200 rounded-2xl text-base focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                                 />
                             </div>
                         </div>
                         <div>
-                            <label className="block text-sm font-semibold text-slate-600 mb-1.5">Categoría</label>
+                            <label className="block text-base font-semibold text-slate-600 mb-2">Categoría</label>
                             <select
                                 value={form.categoryId}
                                 onChange={(e) => updateField('categoryId', e.target.value)}
-                                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent appearance-none bg-white"
+                                className="w-full px-4 py-3.5 border border-gray-200 rounded-2xl text-base focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent appearance-none bg-white"
                             >
                                 <option value="">Seleccionar...</option>
                                 {categories.map((cat) => (
@@ -499,13 +502,13 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                         <div>
-                            <label className="block text-sm font-semibold text-slate-600 mb-1.5">Disponibilidad</label>
+                            <label className="block text-base font-semibold text-slate-600 mb-2">Disponibilidad</label>
                             <select
                                 value={form.stock}
                                 onChange={(e) => updateField('stock', e.target.value)}
-                                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent appearance-none bg-white"
+                                className="w-full px-4 py-3.5 border border-gray-200 rounded-2xl text-base focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent appearance-none bg-white"
                             >
                                 {STOCK_OPTIONS.map((opt) => (
                                     <option key={opt} value={opt}>{opt}</option>
@@ -518,122 +521,137 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
                                     type="checkbox"
                                     checked={form.isPublished}
                                     onChange={(e) => updateField('isPublished', e.target.checked)}
-                                    className="w-4 h-4 rounded text-orange-600 focus:ring-orange-500"
+                                    className="w-5 h-5 rounded text-orange-600 focus:ring-orange-500"
                                 />
-                                <span className="text-sm font-semibold text-slate-600">Publicado</span>
+                                <span className="text-base font-semibold text-slate-600">Publicado</span>
                             </label>
                             <label className="flex items-center gap-3 cursor-pointer py-3">
                                 <input
                                     type="checkbox"
                                     checked={form.precioVisible}
                                     onChange={(e) => updateField('precioVisible', e.target.checked)}
-                                    className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500"
+                                    className="w-5 h-5 rounded text-emerald-600 focus:ring-emerald-500"
                                 />
-                                <span className="text-sm font-semibold text-slate-600">Precio visible</span>
+                                <span className="text-base font-semibold text-slate-600">Precio visible</span>
                             </label>
                         </div>
                     </div>
 
                     <div>
-                        <label className="block text-sm font-semibold text-slate-600 mb-1.5">Descripción</label>
+                        <label className="block text-base font-semibold text-slate-600 mb-2">Descripción</label>
                         <textarea
                             value={form.description}
                             onChange={(e) => updateField('description', e.target.value)}
                             placeholder="Describe las características del producto..."
-                            rows={4}
-                            className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent resize-none"
+                            rows={5}
+                            className="w-full px-4 py-3.5 border border-gray-200 rounded-2xl text-base focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent resize-none"
                         />
                     </div>
                 </div>
             </div>
 
             {/* Imágenes */}
-            <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
-                <div className="px-6 py-4 border-b border-gray-100 bg-slate-50/50">
-                    <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                        <Upload className="w-4 h-4 text-orange-500" /> Imágenes del Producto
-                        <span className="text-xs font-normal text-slate-400">(hasta 4 fotos)</span>
+            <div className="bg-white border border-gray-200 rounded-3xl overflow-hidden shadow-sm">
+                <div className="px-7 py-5 border-b border-gray-100 bg-slate-50/50">
+                    <h3 className="text-base font-bold text-slate-800 flex items-center gap-2.5">
+                        <Upload className="w-5 h-5 text-orange-500" /> Imágenes del Producto
+                        <span className="text-sm font-normal text-slate-400">(hasta 4 fotos)</span>
                     </h3>
                 </div>
-                <div className="p-6 space-y-4">
-                    {form.images.map((slot, idx) => {
-                        const isPrincipal = idx === 0;
+                <div className="p-7 space-y-5">
+                    {(() => {
+                        const slot = form.images[activeImageSlot];
                         const hasContent = !!(slot.url || slot.file);
-                        
-                        return (
-                            <div key={idx} className={`border-2 rounded-2xl overflow-hidden transition-all ${hasContent ? 'border-gray-200 bg-white' : 'border-dashed border-gray-300 bg-gray-50/50'}`}>
-                                <div className="p-4 flex flex-col lg:flex-row gap-4">
-                                    {/* Preview + Info */}
-                                    <div className="lg:w-80 shrink-0 space-y-3">
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-sm font-bold text-slate-800">
-                                                    {isPrincipal ? '🌟 Principal' : `📸 Imagen ${idx + 1}`}
-                                                </span>
-                                            </div>
-                                            {hasContent && (
-                                                <div className="flex items-center gap-1.5">
-                                                    {!isPrincipal && (
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => { swapImages(idx, 0); setActivePreviewImageIdx(0); }}
-                                                            title="Hacer principal"
-                                                            className="p-1.5 rounded-lg bg-orange-100 text-orange-600 hover:bg-orange-200 transition-colors"
-                                                        >
-                                                            <Star className="w-4 h-4" />
-                                                        </button>
-                                                    )}
-                                                    {idx > 0 && (
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => moveImage(idx, -1)}
-                                                            title="Mover izquierda"
-                                                            className="p-1.5 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
-                                                        >
-                                                            <ArrowLeft className="w-4 h-4" />
-                                                        </button>
-                                                    )}
-                                                    {idx < 3 && (
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => moveImage(idx, 1)}
-                                                            title="Mover derecha"
-                                                            className="p-1.5 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
-                                                        >
-                                                            <ArrowRight className="w-4 h-4" />
-                                                        </button>
-                                                    )}
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => resetImageCrop(idx)}
-                                                        title="Restaurar zoom"
-                                                        className="p-1.5 rounded-lg bg-blue-100 text-blue-600 hover:bg-blue-200 transition-colors"
-                                                    >
-                                                        <RotateCcw className="w-4 h-4" />
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => clearImageSlot(idx)}
-                                                        title="Eliminar imagen"
-                                                        className="p-1.5 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition-colors"
-                                                    >
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </button>
-                                                </div>
-                                            )}
-                                        </div>
+                        const isPrincipal = activeImageSlot === 0;
 
-                                        <div className="aspect-video rounded-xl overflow-hidden bg-slate-100 border border-gray-200 relative group">
+                        return (
+                            <>
+                                <div className="flex items-center justify-between gap-3">
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => setActiveImageSlot((prev) => (prev === 0 ? 3 : prev - 1))}
+                                            className="p-2.5 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"
+                                            title="Imagen anterior"
+                                        >
+                                            <ArrowLeft className="w-5 h-5" />
+                                        </button>
+                                        <span className="text-base font-bold text-slate-800">
+                                            {isPrincipal ? '🌟 Imagen principal' : `📸 Imagen ${activeImageSlot + 1}`}
+                                        </span>
+                                        <button
+                                            type="button"
+                                            onClick={() => setActiveImageSlot((prev) => (prev === 3 ? 0 : prev + 1))}
+                                            className="p-2.5 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"
+                                            title="Imagen siguiente"
+                                        >
+                                            <ArrowRight className="w-5 h-5" />
+                                        </button>
+                                    </div>
+                                    <div className="flex items-center gap-1.5">
+                                        {!isPrincipal && (
+                                            <button
+                                                type="button"
+                                                onClick={() => { swapImages(activeImageSlot, 0); setActiveImageSlot(0); setActivePreviewImageIdx(0); }}
+                                                title="Hacer principal"
+                                                className="p-1.5 rounded-lg bg-orange-100 text-orange-600 hover:bg-orange-200 transition-colors"
+                                            >
+                                                <Star className="w-4 h-4" />
+                                            </button>
+                                        )}
+                                        {activeImageSlot > 0 && (
+                                            <button
+                                                type="button"
+                                                onClick={() => { moveImage(activeImageSlot, -1); setActiveImageSlot((v) => Math.max(0, v - 1)); }}
+                                                title="Mover izquierda"
+                                                className="p-1.5 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"
+                                            >
+                                                <ArrowLeft className="w-4 h-4" />
+                                            </button>
+                                        )}
+                                        {activeImageSlot < 3 && (
+                                            <button
+                                                type="button"
+                                                onClick={() => { moveImage(activeImageSlot, 1); setActiveImageSlot((v) => Math.min(3, v + 1)); }}
+                                                title="Mover derecha"
+                                                className="p-1.5 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"
+                                            >
+                                                <ArrowRight className="w-4 h-4" />
+                                            </button>
+                                        )}
+                                        <button
+                                            type="button"
+                                            onClick={() => resetImageCrop(activeImageSlot)}
+                                            title="Restaurar encuadre"
+                                            className="p-1.5 rounded-lg bg-blue-100 text-blue-600 hover:bg-blue-200 transition-colors"
+                                        >
+                                            <RotateCcw className="w-4 h-4" />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => clearImageSlot(activeImageSlot)}
+                                            title="Eliminar imagen"
+                                            className="p-1.5 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition-colors"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 xl:grid-cols-[1.45fr_1fr] gap-6">
+                                    <div className="space-y-3">
+                                        <div className="aspect-[16/10] rounded-2xl overflow-hidden bg-slate-100 border border-gray-200 relative">
                                             {hasContent ? (
                                                 <img
-                                                    src={imagePreviews[idx] || DEFAULT_IMAGE}
-                                                    alt={`Imagen ${idx + 1}`}
+                                                    src={imagePreviews[activeImageSlot] || DEFAULT_IMAGE}
+                                                    alt={`Imagen ${activeImageSlot + 1}`}
                                                     className="absolute inset-0 w-full h-full object-cover"
                                                     style={{
                                                         transform: `translate(${(slot.crop.offsetX * 18).toFixed(2)}%, ${(slot.crop.offsetY * 18).toFixed(2)}%) scale(${slot.crop.zoom})`,
                                                         transformOrigin: 'center',
                                                     }}
                                                     loading="lazy"
+                                                    onDoubleClick={() => setEditorImageExpanded(true)}
                                                 />
                                             ) : (
                                                 <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400">
@@ -641,25 +659,61 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
                                                     <span className="text-sm font-medium">Sin imagen</span>
                                                 </div>
                                             )}
+
+                                            {hasContent && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setEditorImageExpanded(true)}
+                                                    className="absolute top-3 right-3 bg-black/55 hover:bg-black/70 text-white text-xs font-semibold px-3 py-1.5 rounded-lg inline-flex items-center gap-1.5 transition-colors"
+                                                    title="Expandir imagen"
+                                                >
+                                                    <Maximize2 className="w-3.5 h-3.5" /> Expandir
+                                                </button>
+                                            )}
                                         </div>
 
-                                        {isPrincipal && (
-                                            <p className="text-xs text-blue-600 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
-                                                💡 Esta imagen se muestra en el catálogo
-                                            </p>
-                                        )}
+                                        <div className="grid grid-cols-4 gap-3">
+                                            {form.images.map((_, idx) => {
+                                                const hasSlotContent = !!(form.images[idx].url || form.images[idx].file);
+                                                return (
+                                                    <button
+                                                        key={idx}
+                                                        type="button"
+                                                        onClick={() => setActiveImageSlot(idx)}
+                                                        className={`aspect-square rounded-2xl overflow-hidden border-2 relative transition-all ${idx === activeImageSlot ? 'border-orange-500' : 'border-gray-200 hover:border-orange-300'}`}
+                                                    >
+                                                        {hasSlotContent ? (
+                                                            <img
+                                                                src={imagePreviews[idx] || DEFAULT_IMAGE}
+                                                                alt={`Miniatura ${idx + 1}`}
+                                                                className="w-full h-full object-cover"
+                                                                loading="lazy"
+                                                            />
+                                                        ) : (
+                                                            <div className="w-full h-full flex items-center justify-center text-[11px] font-semibold text-slate-400 bg-slate-50">
+                                                                {idx + 1}
+                                                            </div>
+                                                        )}
+                                                        {idx === 0 && (
+                                                            <span className="absolute top-1 left-1 text-[10px] font-bold px-1.5 py-0.5 rounded bg-orange-600 text-white">
+                                                                P
+                                                            </span>
+                                                        )}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
                                     </div>
 
-                                    {/* Controles */}
-                                    <div className="flex-1 space-y-4">
+                                    <div className="space-y-5 border border-gray-200 rounded-2xl p-5 bg-slate-50/50">
                                         {hasContent ? (
                                             <>
                                                 <div>
-                                                    <label className="text-xs font-bold text-slate-600 mb-2 block">Ajustar encuadre</label>
+                                                    <label className="text-sm font-bold text-slate-600 mb-2 block">Ajustar encuadre</label>
                                                     <div className="space-y-3">
                                                         <div>
                                                             <div className="flex items-center justify-between mb-1.5">
-                                                                <span className="text-xs text-slate-600">🔍 Zoom</span>
+                                                                <span className="text-sm text-slate-600">Zoom</span>
                                                                 <span className="text-xs font-bold text-orange-600">{slot.crop.zoom.toFixed(1)}x</span>
                                                             </div>
                                                             <input
@@ -668,14 +722,14 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
                                                                 max={2.5}
                                                                 step={0.1}
                                                                 value={slot.crop.zoom}
-                                                                onChange={(e) => updateImageCrop(idx, { zoom: Number(e.target.value) })}
+                                                                onChange={(e) => updateImageCrop(activeImageSlot, { zoom: Number(e.target.value) })}
                                                                 className="w-full h-2 bg-gray-200 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-orange-500"
                                                             />
                                                         </div>
                                                         <div className="grid grid-cols-2 gap-3">
                                                             <div>
                                                                 <div className="flex items-center justify-between mb-1.5">
-                                                                    <span className="text-xs text-slate-600">↔️ Horizontal</span>
+                                                                    <span className="text-xs text-slate-600">Horizontal</span>
                                                                     <span className="text-xs font-bold text-orange-600">{slot.crop.offsetX > 0 ? '→' : slot.crop.offsetX < 0 ? '←' : '•'}</span>
                                                                 </div>
                                                                 <input
@@ -684,13 +738,13 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
                                                                     max={1}
                                                                     step={0.1}
                                                                     value={slot.crop.offsetX}
-                                                                    onChange={(e) => updateImageCrop(idx, { offsetX: Number(e.target.value) })}
+                                                                    onChange={(e) => updateImageCrop(activeImageSlot, { offsetX: Number(e.target.value) })}
                                                                     className="w-full h-2 bg-gray-200 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-orange-500"
                                                                 />
                                                             </div>
                                                             <div>
                                                                 <div className="flex items-center justify-between mb-1.5">
-                                                                    <span className="text-xs text-slate-600">↕️ Vertical</span>
+                                                                    <span className="text-xs text-slate-600">Vertical</span>
                                                                     <span className="text-xs font-bold text-orange-600">{slot.crop.offsetY > 0 ? '↓' : slot.crop.offsetY < 0 ? '↑' : '•'}</span>
                                                                 </div>
                                                                 <input
@@ -699,7 +753,7 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
                                                                     max={1}
                                                                     step={0.1}
                                                                     value={slot.crop.offsetY}
-                                                                    onChange={(e) => updateImageCrop(idx, { offsetY: Number(e.target.value) })}
+                                                                    onChange={(e) => updateImageCrop(activeImageSlot, { offsetY: Number(e.target.value) })}
                                                                     className="w-full h-2 bg-gray-200 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-orange-500"
                                                                 />
                                                             </div>
@@ -708,24 +762,24 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
                                                 </div>
 
                                                 <div className="pt-3 border-t border-gray-200">
-                                                    <label className="text-xs font-bold text-slate-600 mb-2 block">Cambiar imagen</label>
-                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                    <label className="text-sm font-bold text-slate-600 mb-2 block">Cambiar imagen</label>
+                                                    <div className="grid grid-cols-1 gap-3">
                                                         <input
                                                             type="url"
                                                             value={slot.url}
-                                                            onChange={(e) => updateImageUrl(idx, e.target.value)}
-                                                            placeholder="🔗 Pegar URL..."
-                                                            className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                                            onChange={(e) => updateImageUrl(activeImageSlot, e.target.value)}
+                                                            placeholder="Pegar URL..."
+                                                            className="px-3 py-3 border border-gray-200 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                                                         />
                                                         <div className="relative">
                                                             <input
                                                                 type="file"
                                                                 accept="image/*"
-                                                                onChange={(e) => updateImageFile(idx, e.target.files?.[0] ?? null)}
+                                                                onChange={(e) => updateImageFile(activeImageSlot, e.target.files?.[0] ?? null)}
                                                                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                                                             />
-                                                            <div className="px-3 py-2 bg-slate-100 border border-gray-200 rounded-lg text-sm text-slate-600 text-center font-medium pointer-events-none">
-                                                                📁 {slot.file ? slot.file.name.slice(0, 15) + '...' : 'Subir archivo'}
+                                                            <div className="px-3 py-3 bg-white border border-gray-200 rounded-xl text-base text-slate-600 text-center font-medium pointer-events-none">
+                                                                {slot.file ? slot.file.name.slice(0, 24) : 'Subir archivo'}
                                                             </div>
                                                         </div>
                                                     </div>
@@ -733,44 +787,74 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
                                             </>
                                         ) : (
                                             <div>
-                                                <label className="text-xs font-bold text-slate-600 mb-2 block">Agregar imagen</label>
+                                                <label className="text-sm font-bold text-slate-600 mb-2 block">Agregar imagen</label>
                                                 <div className="space-y-3">
                                                     <input
                                                         type="url"
                                                         value={slot.url}
-                                                        onChange={(e) => updateImageUrl(idx, e.target.value)}
-                                                        placeholder="🔗 Pegar URL de la imagen..."
-                                                        className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                                        onChange={(e) => updateImageUrl(activeImageSlot, e.target.value)}
+                                                        placeholder="Pegar URL de la imagen..."
+                                                        className="w-full px-3 py-3 border border-gray-300 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                                                     />
-                                                    <div className="relative">
-                                                        <div className="absolute inset-0 flex items-center">
-                                                            <div className="w-full border-t border-gray-300"></div>
-                                                        </div>
-                                                        <div className="relative flex justify-center text-xs">
-                                                            <span className="bg-white px-2 text-gray-500">o</span>
-                                                        </div>
-                                                    </div>
                                                     <div className="relative">
                                                         <input
                                                             type="file"
                                                             accept="image/*"
-                                                            onChange={(e) => updateImageFile(idx, e.target.files?.[0] ?? null)}
+                                                            onChange={(e) => updateImageFile(activeImageSlot, e.target.files?.[0] ?? null)}
                                                             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                                                         />
-                                                        <div className="px-4 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm text-center font-bold pointer-events-none transition-colors">
-                                                            📁 Subir desde tu computadora
+                                                        <div className="px-4 py-3.5 bg-orange-500 text-white rounded-xl text-base text-center font-bold pointer-events-none transition-colors">
+                                                            Subir desde tu computadora
                                                         </div>
                                                     </div>
                                                 </div>
                                             </div>
                                         )}
+
+                                        {isPrincipal && (
+                                            <p className="text-sm text-blue-600 bg-blue-50 border border-blue-200 rounded-xl px-3 py-2.5">
+                                                Esta imagen se muestra en el catálogo.
+                                            </p>
+                                        )}
                                     </div>
                                 </div>
-                            </div>
+                            </>
                         );
-                    })}
+                    })()}
                 </div>
             </div>
+
+            {editorImageExpanded && (
+                <div
+                    className="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4"
+                    onClick={() => setEditorImageExpanded(false)}
+                    role="dialog"
+                    aria-modal="true"
+                >
+                    <div
+                        className="relative max-w-6xl w-full"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <button
+                            type="button"
+                            onClick={() => setEditorImageExpanded(false)}
+                            className="absolute -top-11 right-0 text-white/90 hover:text-white flex items-center gap-2 text-sm font-semibold"
+                        >
+                            <X className="w-5 h-5" /> Cerrar
+                        </button>
+                        <div className="bg-white rounded-2xl overflow-hidden shadow-2xl">
+                            <div className="relative w-full aspect-[16/10] bg-black">
+                                <img
+                                    src={imagePreviews[activeImageSlot] || DEFAULT_IMAGE}
+                                    alt={`Imagen expandida ${activeImageSlot + 1}`}
+                                    className="absolute inset-0 w-full h-full object-contain"
+                                    loading="eager"
+                                />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Ficha Técnica (principal) */}
             <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
@@ -1063,23 +1147,29 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
         </div>
     );
 
+    const previewImages = imagePreviews.filter(Boolean).slice(0, 4);
+
     // --- DETAIL PREVIEW SECTION ---
     const PreviewSection = (
-        <div className="space-y-4">
+        <div className="space-y-5">
             <div className="flex items-center justify-between">
                 <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
                     <Eye className="w-3.5 h-3.5" /> Previsualización
                 </h3>
-                <span className="text-xs font-semibold text-orange-600">Vista Detallada</span>
+                <span className="text-xs font-semibold text-orange-600">Vista de producto</span>
             </div>
 
-            {/* Detail-style preview */}
-            <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-md">
-                {/* Product Image */}
-                <div className="aspect-[16/9] bg-slate-100 relative overflow-hidden">
-                    {imagePreviews[0] ? (
+            <div className="bg-white border border-gray-200 rounded-3xl p-6 shadow-md space-y-6">
+                <div className="text-sm text-slate-400 font-medium flex items-center gap-2">
+                    <span>Catálogo</span>
+                    <ChevronRight className="w-3 h-3" />
+                    <span className="text-slate-600">{categoryName || 'Categoría'}</span>
+                </div>
+
+                <div className="aspect-[16/10] bg-slate-100 rounded-2xl overflow-hidden relative">
+                    {previewImages.length > 0 ? (
                         <img
-                            src={imagePreviews[activePreviewImageIdx] || imagePreviews[0]}
+                            src={imagePreviews[activePreviewImageIdx] || previewImages[0]}
                             alt="Preview"
                             className="absolute inset-0 w-full h-full object-cover"
                             style={{
@@ -1088,17 +1178,12 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
                             }}
                         />
                     ) : (
-                        <div className="flex items-center justify-center h-full text-slate-300">
+                        <div className="h-full flex items-center justify-center text-slate-300">
                             <Upload className="w-10 h-10" />
                         </div>
                     )}
-                    {form.isPublished && (
-                        <div className="absolute top-3 left-3 bg-emerald-500 text-white text-xs font-bold px-2.5 py-1 rounded-lg shadow">
-                            PUBLICADO
-                        </div>
-                    )}
                     {form.stock && (
-                        <div className={`absolute top-3 right-3 text-xs font-bold px-2.5 py-1 rounded-lg shadow ${form.stock === 'EN STOCK'
+                        <div className={`absolute top-3 left-3 text-sm font-bold px-3 py-1.5 rounded-lg shadow ${form.stock === 'EN STOCK'
                             ? 'bg-emerald-500 text-white'
                             : form.stock === 'A PEDIDO'
                                 ? 'bg-blue-500 text-white'
@@ -1109,70 +1194,72 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
                     )}
                 </div>
 
-                <div className="p-5">
-                    {/* SKU + Category */}
-                    <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs font-semibold text-slate-400">
-                            SKU: {form.sku || 'AUTO'}
+                {previewImages.length > 1 && (
+                    <div className="grid grid-cols-4 gap-3">
+                        {previewImages.map((img, idx) => (
+                            <button
+                                key={`${img}-${idx}`}
+                                type="button"
+                                onClick={() => setActivePreviewImageIdx(idx)}
+                                className={`aspect-square rounded-xl overflow-hidden border-2 ${idx === activePreviewImageIdx ? 'border-orange-500' : 'border-slate-200'}`}
+                            >
+                                <img src={img} alt={`Miniatura ${idx + 1}`} className="w-full h-full object-cover" loading="lazy" />
+                            </button>
+                        ))}
+                    </div>
+                )}
+
+                <div className="space-y-5">
+                    <div className="flex items-center justify-between">
+                        <span className="text-sm font-semibold text-slate-400">SKU: {form.sku || 'AUTO'}</span>
+                        <span className={`text-sm font-semibold px-2.5 py-1 rounded-md ${form.isPublished ? 'text-emerald-700 bg-emerald-50' : 'text-amber-700 bg-amber-50'}`}>
+                            {form.isPublished ? 'Activo' : 'Deshabilitado'}
                         </span>
-                        {categoryName && (
-                            <span className="text-xs font-semibold text-orange-600 bg-orange-50 px-2 py-0.5 rounded">
-                                {categoryName}
-                            </span>
-                        )}
                     </div>
 
-                    {/* Title */}
-                    <h3 className="text-lg font-extrabold text-slate-900 leading-snug mb-3">
+                    <h3 className="text-3xl font-extrabold text-slate-900 leading-tight">
                         {form.title || 'Nombre del Producto'}
                     </h3>
 
-
-
-                    {/* Price card */}
                     {form.precioVisible ? (
-                        <div className="bg-slate-50 border border-gray-100 rounded-xl p-4 mb-4 relative overflow-hidden">
-                            <div className="absolute top-0 right-0 w-16 h-16 bg-orange-600/5 rounded-full -mr-8 -mt-8" />
+                        <div className="bg-white border border-gray-200 rounded-2xl p-6 relative overflow-hidden">
+                            <div className="absolute top-0 right-0 w-20 h-20 bg-orange-600/5 rounded-full -mr-10 -mt-10" />
                             <div className="flex items-baseline gap-2 mb-1">
-                                <span className="text-2xl font-extrabold text-slate-900 tracking-tight">
+                                <span className="text-4xl font-extrabold text-slate-900 tracking-tight">
                                     ${form.price ? formatPrice(Number(form.price)) : '0'}
                                 </span>
-                                <span className="text-sm font-semibold text-slate-400">Neto</span>
+                                <span className="text-base font-semibold text-slate-400">Neto</span>
                             </div>
-                            <p className="text-xs text-slate-400 font-medium flex items-center gap-1">
-                                <Info className="w-3 h-3" /> Valores sujetos a variación por volumen
+                            <p className="text-sm text-slate-400 font-medium flex items-center gap-1.5">
+                                <Info className="w-3.5 h-3.5" /> Valores sujetos a variación por volumen
                             </p>
                         </div>
                     ) : (
-                        <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 mb-4 text-center">
-                            <p className="text-sm font-bold text-orange-700">Precio bajo consulta</p>
-                            <p className="text-[11px] text-orange-500 mt-0.5">El precio no será visible para el usuario</p>
+                        <div className="bg-orange-50 border border-orange-200 rounded-2xl p-5 text-center">
+                            <p className="text-base font-bold text-orange-700">Precio bajo consulta</p>
                         </div>
                     )}
 
-                    {/* Quick specs grid */}
                     {form.quickSpecs.some((s) => s.value.trim()) && (
-                        <div className="grid grid-cols-2 gap-2 mb-4">
+                        <div className="grid grid-cols-2 gap-3">
                             {form.quickSpecs.filter((s) => s.value.trim()).slice(0, 4).map((s, i) => (
-                                <div key={s.label} className="bg-slate-50 border border-slate-100 rounded-lg p-3 flex items-center gap-2">
-                                    <div className="bg-white p-1.5 rounded-md text-orange-500 shadow-sm">
+                                <div key={`${s.label}-${i}`} className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-center gap-2.5">
+                                    <div className="bg-white p-2 rounded-md text-orange-500 shadow-sm">
                                         {QUICK_SPECS_ICONS[i % QUICK_SPECS_ICONS.length].icon}
                                     </div>
                                     <div className="min-w-0">
-                                        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide truncate">{s.label}</p>
-                                        <p className="text-xs font-bold text-slate-800 truncate">{s.value}</p>
+                                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide truncate">{s.label}</p>
+                                        <p className="text-sm font-bold text-slate-800 truncate">{s.value}</p>
                                     </div>
                                 </div>
                             ))}
                         </div>
                     )}
 
-                    {/* Description */}
-                    <p className="text-sm text-slate-500 leading-relaxed mb-4 line-clamp-3">
+                    <p className="text-base text-slate-500 leading-relaxed line-clamp-3">
                         {form.description || 'La descripción del producto aparecerá aquí...'}
                     </p>
 
-                    {/* Specs table + Ficha Técnica merged */}
                     {(() => {
                         const rows: { key: string; value: string }[] = [];
                         if (form.color) rows.push({ key: 'Color', value: form.color });
@@ -1182,63 +1269,29 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
                         if (form.pesoKg) rows.push({ key: 'Peso', value: `${form.pesoKg} kg` });
                         const dims = [form.altoMm && `${form.altoMm}mm`, form.anchoMm && `${form.anchoMm}mm`, form.largoMm && `${form.largoMm}mm`].filter(Boolean).join(' × ');
                         if (dims) rows.push({ key: 'Dimensiones', value: dims });
-                        filledSpecs.forEach(s => rows.push(s));
+                        filledSpecs.forEach((s) => rows.push(s));
 
-                        return rows.length > 0 ? (
-                            <div className="border border-gray-100 rounded-xl overflow-hidden mb-4">
-                                <div className="px-4 py-2 bg-slate-50 border-b border-gray-100">
-                                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Ficha Técnica</p>
+                        if (rows.length === 0) return null;
+
+                        return (
+                            <div className="border border-gray-200 rounded-2xl overflow-hidden">
+                                <div className="px-4 py-3 bg-slate-50 border-b border-gray-200">
+                                    <p className="text-sm font-bold text-slate-500 uppercase tracking-wider">Ficha técnica</p>
                                 </div>
                                 {rows.map((s, idx) => (
-                                    <div key={idx} className={`flex px-4 py-2.5 text-xs ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'}`}>
-                                        <span className="w-28 font-semibold text-slate-400 flex-shrink-0 truncate">{s.key}</span>
+                                    <div key={`${s.key}-${idx}`} className={`flex px-4 py-3 text-sm ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'}`}>
+                                        <span className="w-32 font-semibold text-slate-400 flex-shrink-0 truncate">{s.key}</span>
                                         <span className="font-semibold text-slate-800 truncate">{s.value}</span>
                                     </div>
                                 ))}
                             </div>
-                        ) : null;
+                        );
                     })()}
 
-                    {(form.notaTecnica || form.recursos.some((r) => r.label && r.url)) && (
-                        <div className="mt-4 space-y-3">
-                            {form.notaTecnica && (
-                                <div className="bg-orange-50 border border-orange-100 rounded-xl p-3">
-                                    <p className="text-xs font-bold text-orange-700 uppercase tracking-wide mb-1">Nota Técnica</p>
-                                    <p className="text-xs text-orange-800 leading-relaxed line-clamp-3">
-                                        {form.notaTecnica}
-                                    </p>
-                                </div>
-                            )}
-                            {form.recursos.some((r) => r.label && r.url) && (
-                                <div className="bg-white border border-gray-100 rounded-xl p-3">
-                                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">Recursos</p>
-                                    <div className="space-y-1">
-                                        {form.recursos.filter((r) => r.label && r.url).slice(0, 2).map((r, idx) => (
-                                            <div key={`${r.label}-${idx}`} className="flex items-center gap-2 text-xs text-slate-600">
-                                                <Download className="w-3 h-3 text-orange-500" /> {r.label}
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    )}
-
-                    {/* CTA */}
-                    <button className="w-full bg-orange-600 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 text-sm">
+                    <button className="w-full bg-orange-600 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 text-base">
                         Solicitar Cotización <ArrowRight className="w-4 h-4" />
                     </button>
                 </div>
-            </div>
-
-            {/* Design tip */}
-            <div className="bg-orange-50 border border-orange-100 rounded-xl p-4">
-                <p className="text-sm font-semibold text-orange-800 flex items-center gap-2">
-                    <Sparkles className="w-4 h-4" /> Consejo
-                </p>
-                <p className="text-xs text-orange-600 mt-1">
-                    Usa fotos de alta resolución con fondo blanco para que el producto resalte en el catálogo.
-                </p>
             </div>
         </div>
     );
@@ -1261,53 +1314,54 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
     }
 
     return (
-        <div className="max-w-6xl mx-auto">
-            {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-                <div>
-                    <nav className="text-sm text-slate-400 flex items-center gap-1.5 mb-1 font-medium">
-                        <span className="hover:text-orange-600 cursor-pointer" onClick={() => router.push('/admin')}>
-                            Admin
-                        </span>
-                        <ChevronRight className="w-3 h-3" />
-                        <span className="text-slate-700 font-semibold">
-                            {isEditing ? 'Editar Producto' : 'Nuevo Producto'}
-                        </span>
-                    </nav>
-                    <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
-                        {isEditing ? 'Editar Producto' : 'Crear Nuevo Producto'}
-                    </h1>
-                </div>
-                <div className="flex items-center gap-3">
-                    <button
-                        onClick={() => router.push('/admin')}
-                        className="px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-600 border border-gray-200 hover:bg-slate-50 transition-colors"
-                    >
-                        Descartar
-                    </button>
-                    {/* Desktop save button */}
-                    <button
-                        onClick={handleSave}
-                        disabled={saving}
-                        className={`hidden lg:flex items-center gap-2 bg-orange-600 hover:bg-orange-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold px-5 py-2.5 rounded-xl transition-colors shadow-lg shadow-orange-600/20 text-sm active:scale-95`}
-                    >
-                        <Save className="w-4 h-4" />
-                        {saving ? 'Guardando...' : (isEditing ? 'Guardar Cambios' : 'Guardar Producto')}
-                    </button>
+        <div className="max-w-[1450px] mx-auto">
+            {/* Sticky Header */}
+            <div className="sticky top-2 z-30 mb-7 bg-slate-50/95 backdrop-blur border border-slate-200 rounded-2xl p-5 shadow-sm">
+                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
+                    <div>
+                        <nav className="text-base text-slate-400 flex items-center gap-1.5 mb-1 font-medium">
+                            <span className="hover:text-orange-600 cursor-pointer" onClick={() => router.push('/admin')}>
+                                Admin
+                            </span>
+                            <ChevronRight className="w-3 h-3" />
+                            <span className="text-slate-700 font-semibold">
+                                {isEditing ? 'Editar Producto' : 'Nuevo Producto'}
+                            </span>
+                        </nav>
+                        <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">
+                            {isEditing ? 'Editar Producto' : 'Crear Nuevo Producto'}
+                        </h1>
+                    </div>
+                    <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+                        <button
+                            onClick={() => router.push('/admin')}
+                            className="px-5 py-3 rounded-xl text-base font-semibold text-slate-600 border border-gray-200 hover:bg-slate-50 transition-colors"
+                        >
+                            Descartar
+                        </button>
+                        <button
+                            onClick={handleSave}
+                            disabled={saving}
+                            className="items-center gap-2 bg-orange-600 hover:bg-orange-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold px-6 py-3 rounded-xl transition-colors shadow-lg shadow-orange-600/20 text-base active:scale-95 inline-flex"
+                        >
+                            <Save className="w-4 h-4" />
+                            {saving ? 'Guardando...' : (isEditing ? 'Guardar Cambios' : 'Guardar Producto')}
+                        </button>
+                    </div>
                 </div>
             </div>
 
             {saveError && (
-                <div className="mb-6 bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm font-semibold">
+                <div className="mb-6 bg-red-50 border border-red-200 text-red-700 rounded-xl px-5 py-3.5 text-base font-semibold">
                     {saveError}
                 </div>
             )}
 
             {/* Desktop: split panel */}
-            <div className="hidden lg:grid lg:grid-cols-5 gap-8">
-                <div className="col-span-3">{FormSection}</div>
-                <div className="col-span-2">
-                    <div className="sticky top-8 max-h-[calc(100vh-6rem)] overflow-y-auto pr-1 scrollbar-thin">
+            <div className="hidden lg:grid lg:grid-cols-12 gap-10">
+                <div className="col-span-7">{FormSection}</div>
+                <div className="col-span-5">
+                    <div className="sticky top-10 max-h-[calc(100vh-6rem)] overflow-y-auto pr-1 scrollbar-thin">
                         {PreviewSection}
                     </div>
                 </div>

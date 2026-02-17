@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { X, ChevronLeft, ChevronRight, Download, Info, Package, Clock, ShoppingCart } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { X, ChevronLeft, ChevronRight, Download, Info, Package, Clock, ShoppingCart, Maximize2 } from 'lucide-react';
 import type { Product } from '@/src/entities/product/model/types';
 import { useProductInteractionTracker } from '@/src/features/product-interaction';
 import { formatPrice } from '@/src/shared/lib/formatters';
@@ -15,12 +15,21 @@ interface ProductBookModalProps {
 export default function ProductBookModal({ product, isOpen, onClose }: ProductBookModalProps) {
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [isClosing, setIsClosing] = useState(false);
+    const [hoverZoom, setHoverZoom] = useState(false);
+    const [zoomPos, setZoomPos] = useState({ x: 0, y: 0, width: 0, height: 0 });
+    const [isImageExpanded, setIsImageExpanded] = useState(false);
     const { trackClick } = useProductInteractionTracker();
+    const LENS_SIZE = 170;
+    const LENS_ZOOM = 2.3;
 
     useEffect(() => {
         if (isOpen) {
             document.body.style.overflow = 'hidden';
-            setIsClosing(false);
+            const resetTimer = setTimeout(() => setIsClosing(false), 0);
+            return () => {
+                clearTimeout(resetTimer);
+                document.body.style.overflow = 'unset';
+            };
         } else {
             document.body.style.overflow = 'unset';
         }
@@ -29,12 +38,12 @@ export default function ProductBookModal({ product, isOpen, onClose }: ProductBo
         };
     }, [isOpen]);
 
-    const handleClose = () => {
+    const handleClose = useCallback(() => {
         setIsClosing(true);
         setTimeout(() => {
             onClose();
         }, 300);
-    };
+    }, [onClose]);
 
     const nextImage = () => {
         setCurrentImageIndex((prev) => (prev + 1) % product.images.length);
@@ -52,7 +61,7 @@ export default function ProductBookModal({ product, isOpen, onClose }: ProductBo
             window.addEventListener('keydown', handleEscape);
             return () => window.removeEventListener('keydown', handleEscape);
         }
-    }, [isOpen]);
+    }, [handleClose, isOpen]);
 
     if (!isOpen && !isClosing) return null;
 
@@ -118,7 +127,38 @@ export default function ProductBookModal({ product, isOpen, onClose }: ProductBo
                                     src={product.images[currentImageIndex]}
                                     alt={`${product.title} - ${currentImageIndex + 1}`}
                                     className="w-full h-full object-cover"
+                                    onMouseEnter={() => setHoverZoom(true)}
+                                    onMouseLeave={() => setHoverZoom(false)}
+                                    onMouseMove={(e) => {
+                                        const rect = (e.currentTarget as HTMLImageElement).getBoundingClientRect();
+                                        const x = e.clientX - rect.left;
+                                        const y = e.clientY - rect.top;
+                                        setZoomPos({
+                                            x: Math.max(0, Math.min(rect.width, x)),
+                                            y: Math.max(0, Math.min(rect.height, y)),
+                                            width: rect.width,
+                                            height: rect.height,
+                                        });
+                                    }}
+                                    onDoubleClick={() => setIsImageExpanded(true)}
                                 />
+
+                                {hoverZoom && (
+                                    <div
+                                        className="pointer-events-none absolute rounded-full border-2 border-white/90 shadow-2xl hidden md:block"
+                                        style={{
+                                            width: `${LENS_SIZE}px`,
+                                            height: `${LENS_SIZE}px`,
+                                            left: `${zoomPos.x - LENS_SIZE / 2}px`,
+                                            top: `${zoomPos.y - LENS_SIZE / 2}px`,
+                                            backgroundImage: `url(${product.images[currentImageIndex]})`,
+                                            backgroundRepeat: 'no-repeat',
+                                            backgroundSize: `${zoomPos.width * LENS_ZOOM}px ${zoomPos.height * LENS_ZOOM}px`,
+                                            backgroundPosition: `${-(zoomPos.x * LENS_ZOOM - LENS_SIZE / 2)}px ${-(zoomPos.y * LENS_ZOOM - LENS_SIZE / 2)}px`,
+                                        }}
+                                    />
+                                )}
+
                                 {product.stock === 'EN STOCK' && (
                                     <div className="absolute top-4 left-4">
                                         <span className="bg-emerald-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-lg">
@@ -126,6 +166,16 @@ export default function ProductBookModal({ product, isOpen, onClose }: ProductBo
                                         </span>
                                     </div>
                                 )}
+
+                                <button
+                                    type="button"
+                                    onClick={() => setIsImageExpanded(true)}
+                                    className="absolute top-4 right-4 bg-black/55 hover:bg-black/70 text-white text-xs font-semibold px-3 py-1.5 rounded-lg inline-flex items-center gap-1.5 transition-colors"
+                                    title="Expandir imagen"
+                                >
+                                    <Maximize2 className="w-3.5 h-3.5" /> Expandir
+                                </button>
+
                                 {product.images.length > 1 && (
                                     <>
                                         <button
@@ -167,6 +217,38 @@ export default function ProductBookModal({ product, isOpen, onClose }: ProductBo
                                 </div>
                             )}
                         </div>
+
+                        {isImageExpanded && (
+                            <div
+                                className="fixed inset-0 z-[70] bg-black/75 flex items-center justify-center p-4"
+                                onClick={() => setIsImageExpanded(false)}
+                                role="dialog"
+                                aria-modal="true"
+                            >
+                                <div
+                                    className="relative max-w-6xl w-full"
+                                    onClick={(e) => e.stopPropagation()}
+                                >
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsImageExpanded(false)}
+                                        className="absolute -top-11 right-0 text-white/90 hover:text-white flex items-center gap-2 text-sm font-semibold"
+                                    >
+                                        <X className="w-5 h-5" /> Cerrar
+                                    </button>
+                                    <div className="bg-white rounded-2xl overflow-hidden shadow-2xl">
+                                        <div className="relative w-full aspect-[4/3] bg-black">
+                                            <img
+                                                src={product.images[currentImageIndex]}
+                                                alt={`${product.title} - imagen expandida ${currentImageIndex + 1}`}
+                                                className="absolute inset-0 w-full h-full object-contain"
+                                                loading="eager"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
 
                         {/* Título y SKU */}
                         <div className="mb-6">

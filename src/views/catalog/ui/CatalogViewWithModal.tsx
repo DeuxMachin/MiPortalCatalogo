@@ -1,16 +1,12 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import {
     ArrowRight,
     Filter,
     LayoutGrid,
     List as ListIcon,
-    Maximize2,
     Search,
-    Tag,
-    Info,
     X,
 } from 'lucide-react';
 import type { Product } from '@/src/entities/product/model/types';
@@ -41,7 +37,6 @@ const STOCK_FILTERS: Array<{ value: StockStatus; label: string }> = [
 ];
 
 export default function CatalogViewWithModal() {
-    const router = useRouter();
     const { products: allProducts, error: productsError } = useProducts();
     const { activeCategories, loading: catsLoading, error: categoriesError } = useCategories();
     const { trackView, trackClick } = useProductInteractionTracker();
@@ -169,8 +164,6 @@ export default function CatalogViewWithModal() {
 
     const getCategoryName = (product: Product) =>
         categoryNameById.get(String(product.categoryId)) ?? product.category ?? 'Sin categoria';
-    const selectedCategoryLabel = selectedProduct ? getCategoryName(selectedProduct) : '';
-
     return (
         <>
             <LoadingOverlay visible={showLoading} message="Cargando catalogo..." />
@@ -382,7 +375,7 @@ function CatalogProductCard({
                 <div className="w-16 h-16 rounded-lg bg-slate-50 overflow-hidden shrink-0 border border-slate-100">
                     <img
                         src={product.images[0]}
-                        className="w-full h-full object-cover group-hover:scale-110 transition-transform"
+                        className="w-full h-full object-cover"
                         alt={product.title}
                     />
                 </div>
@@ -424,16 +417,11 @@ function CatalogProductCard({
             <div className="relative aspect-[4/3] overflow-hidden bg-slate-100">
                 <img
                     src={product.images[0]}
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                    className="w-full h-full object-cover"
                     alt={product.title}
                 />
                 <div className="absolute top-2 left-2">
                     <StockBadge stock={product.stock} />
-                </div>
-                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button className="p-2 bg-white/90 backdrop-blur rounded-full shadow-lg text-slate-700 hover:text-orange-600">
-                        <Maximize2 className="w-4 h-4" />
-                    </button>
                 </div>
             </div>
 

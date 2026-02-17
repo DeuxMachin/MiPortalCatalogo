@@ -16,4 +16,5 @@ export interface ProductRepository {
         options?: { refetch?: boolean },
     ): Promise<{ success: boolean; error?: string; id?: string }>;
     setProductImages(id: string, imageInputs: ProductImageInput[]): Promise<{ success: boolean; error?: string }>;
+    deleteProduct(id: string): Promise<{ success: boolean; error?: string }>;
 }

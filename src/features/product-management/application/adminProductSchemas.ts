@@ -26,6 +26,10 @@ export interface AdminProductInputDTO {
     recursos?: Array<{ label: string; url: string }>;
 }
 
+export interface AdminProductActionDTO {
+    id: string;
+}
+
 export function validateAdminProductInput(input: Partial<AdminProductInputDTO>): {
     ok: boolean;
     errors: string[];
@@ -55,6 +59,19 @@ export function validateAdminProductInput(input: Partial<AdminProductInputDTO>):
             errors.push(`El campo ${field} debe ser un número válido mayor o igual a 0.`);
         }
     });
+
+    return { ok: errors.length === 0, errors };
+}
+
+export function validateAdminProductActionInput(input: Partial<AdminProductActionDTO>): {
+    ok: boolean;
+    errors: string[];
+} {
+    const errors: string[] = [];
+
+    if (!input.id?.trim()) {
+        errors.push('El identificador del producto es obligatorio.');
+    }
 
     return { ok: errors.length === 0, errors };
 }
