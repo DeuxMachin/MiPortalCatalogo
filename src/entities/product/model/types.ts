@@ -15,6 +15,27 @@ export interface ProductResource {
     url: string;
 }
 
+export interface ProductVariant {
+    id: string;
+    sku: string;
+    price: number;
+    unit: string;
+    stock: StockStatus;
+    medida?: string;
+    presentacion?: string;
+    unidadVenta?: string;
+    altoMm?: number;
+    anchoMm?: number;
+    largoMm?: number;
+    pesoKg?: number;
+    material?: string;
+    color?: string;
+    contenido?: string;
+    specs?: ProductSpecs;
+    quickSpecs?: ProductQuickSpec[];
+    isActive: boolean;
+}
+
 /** Producto del catálogo de construcción. */
 export interface Product {
     id: string;
@@ -54,6 +75,7 @@ export interface Product {
     clicks30d?: number;
     favs30d?: number;
     popularityScore?: number;
+    variants?: ProductVariant[];
 }
 
 /** Producto relacionado (vista reducida). */

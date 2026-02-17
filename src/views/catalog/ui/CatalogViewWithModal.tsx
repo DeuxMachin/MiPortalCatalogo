@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
     ArrowRight,
     Filter,
@@ -37,6 +38,7 @@ const STOCK_FILTERS: Array<{ value: StockStatus; label: string }> = [
 ];
 
 export default function CatalogViewWithModal() {
+    const router = useRouter();
     const { products: allProducts, error: productsError } = useProducts();
     const { activeCategories, loading: catsLoading, error: categoriesError } = useCategories();
     const { trackView, trackClick } = useProductInteractionTracker();
@@ -211,6 +213,14 @@ export default function CatalogViewWithModal() {
                                             <option key={opt.value} value={opt.value}>{opt.label}</option>
                                         ))}
                                     </select>
+
+                                    <button
+                                        onClick={() => router.push('/catalog/categories')}
+                                        className="md:hidden text-xs font-semibold text-slate-600 bg-white border border-slate-200 rounded-lg px-3 py-2 hover:border-orange-300 hover:text-orange-600 transition-colors"
+                                        aria-label="Ver categorías"
+                                    >
+                                        Categorías
+                                    </button>
 
                                     <div className="flex bg-white border border-slate-200 rounded-lg p-1">
                                         <button

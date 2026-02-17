@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
     ChevronRight,
@@ -33,7 +34,41 @@ const QUICK_SPECS_ICONS = {
 export default function ProductDetailView({ product }: ProductDetailViewProps) {
     const router = useRouter();
     const { getRelatedProducts } = useProducts();
-    const quickSpecs = (product.quickSpecs ?? []).filter((s) => s.value?.trim());
+    const variants = useMemo(() => product.variants ?? [], [product.variants]);
+    const [selectedVariantId, setSelectedVariantId] = useState<string>(() => {
+        const active = variants.find((variant) => variant.isActive);
+        return active?.id ?? variants[0]?.id ?? '';
+    });
+    const effectiveVariantId = variants.some((variant) => variant.id === selectedVariantId)
+        ? selectedVariantId
+        : (variants.find((variant) => variant.isActive)?.id ?? variants[0]?.id ?? '');
+    const selectedVariant = useMemo(
+        () => variants.find((variant) => variant.id === effectiveVariantId) ?? variants[0],
+        [effectiveVariantId, variants],
+    );
+    const productData = useMemo(
+        () => ({
+            ...product,
+            sku: selectedVariant?.sku ?? product.sku,
+            price: selectedVariant?.price ?? product.price,
+            unit: selectedVariant?.unit ?? product.unit,
+            stock: selectedVariant?.stock ?? product.stock,
+            quickSpecs: selectedVariant?.quickSpecs ?? product.quickSpecs,
+            specs: selectedVariant?.specs ?? product.specs,
+            fullSpecs: selectedVariant?.specs ?? product.fullSpecs,
+            color: selectedVariant?.color ?? product.color,
+            material: selectedVariant?.material ?? product.material,
+            contenido: selectedVariant?.contenido ?? product.contenido,
+            unidadMedida: selectedVariant?.unidadVenta ?? product.unidadMedida,
+            presentacion: selectedVariant?.presentacion ?? product.presentacion,
+            pesoKg: selectedVariant?.pesoKg ?? product.pesoKg,
+            altoMm: selectedVariant?.altoMm ?? product.altoMm,
+            anchoMm: selectedVariant?.anchoMm ?? product.anchoMm,
+            largoMm: selectedVariant?.largoMm ?? product.largoMm,
+        }),
+        [product, selectedVariant],
+    );
+    const quickSpecs = (productData.quickSpecs ?? []).filter((s) => s.value?.trim());
     const relatedProducts = getRelatedProducts(product.id, 20);
 
     return (
@@ -58,28 +93,44 @@ export default function ProductDetailView({ product }: ProductDetailViewProps) {
                 <ProductGallery
                     images={product.images}
                     title={product.title}
-                    stockLabel={product.stock === 'EN STOCK' ? 'Stock en Planta' : undefined}
+                    stockLabel={productData.stock === 'EN STOCK' ? 'Stock en Planta' : undefined}
                 />
 
                 {/* Info */}
                 <div className="flex flex-col">
-                    <div className="flex items-center justify-between mb-4">
-                        <span className="text-sm font-semibold text-slate-400">
-                            SKU: {product.sku}
-                        </span>
-                    </div>
-
-                    <h1 className="text-3xl lg:text-4xl font-extrabold text-slate-900 mb-6 leading-tight tracking-tight">
-                        {product.title}
+                    <h1 className="text-3xl lg:text-4xl font-extrabold text-slate-900 mb-4 leading-tight tracking-tight">
+                        {productData.title}
                     </h1>
 
+                    {variants.length > 0 && (
+                        <div className="mb-6">
+                            <label className="block text-xs font-bold uppercase tracking-wide text-slate-500 mb-2">
+                                Variante
+                            </label>
+                            <select
+                                value={effectiveVariantId}
+                                onChange={(event) => setSelectedVariantId(event.target.value)}
+                                className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-white text-sm font-semibold text-slate-700"
+                            >
+                                {variants.map((variant) => {
+                                    const labelParts = [variant.presentacion, variant.medida].filter(Boolean);
+                                    return (
+                                        <option key={variant.id} value={variant.id}>
+                                            {labelParts.join(' · ') || `Formato ${variant.id.slice(0, 6)}`}
+                                        </option>
+                                    );
+                                })}
+                            </select>
+                        </div>
+                    )}
+
                     {/* Precio */}
-                    {product.precioVisible !== false ? (
+                    {productData.precioVisible !== false ? (
                         <div className="bg-white border border-gray-100 rounded-2xl p-7 mb-6 shadow-md relative overflow-hidden">
                             <div className="absolute top-0 right-0 w-28 h-28 bg-orange-600/5 rounded-full -mr-14 -mt-14" />
                             <div className="flex items-baseline gap-2 mb-2">
                                 <span className="text-4xl font-extrabold text-slate-900 tracking-tight">
-                                    ${formatPrice(product.price)}
+                                    ${formatPrice(productData.price)}
                                 </span>
                                 <span className="text-base font-semibold text-slate-400">Neto</span>
                             </div>
@@ -124,7 +175,6 @@ export default function ProductDetailView({ product }: ProductDetailViewProps) {
                     )}
 
                     {/* CTA */}
-                    <p className="text-base text-slate-500 leading-relaxed mb-5">{product.description}</p>
                     <button
                         className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-3 transition-all active:scale-95 text-sm shadow-lg shadow-orange-600/20"
                         onClick={() => router.push('/catalog')}
@@ -155,15 +205,25 @@ export default function ProductDetailView({ product }: ProductDetailViewProps) {
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 p-8">
                     <div className="lg:col-span-2 space-y-6">
+                        {productData.description && (
+                            <div className="bg-slate-50 border border-slate-200 rounded-xl p-5">
+                                <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wide mb-2">Descripción</h3>
+                                <p className="text-sm text-slate-700 leading-relaxed">
+                                    {productData.description.substring(0, 300)}
+                                    {productData.description.length > 300 ? '...' : ''}
+                                </p>
+                            </div>
+                        )}
+
                         {/* Structured technical spec cards */}
                         {(() => {
                             const cards: { label: string; value: string; icon?: React.ReactNode }[] = [];
-                            if (product.color) cards.push({ label: 'Color', value: product.color, icon: <Sparkles className="w-4 h-4" /> });
-                            if (product.material) cards.push({ label: 'Material', value: product.material, icon: <PackageCheck className="w-4 h-4" /> });
-                            if (product.contenido) cards.push({ label: 'Contenido', value: `${product.contenido}${product.unidadMedida ? ' ' + product.unidadMedida : ''}`, icon: <Info className="w-4 h-4" /> });
-                            if (product.presentacion) cards.push({ label: 'Presentación', value: product.presentacion });
-                            if (product.pesoKg != null) cards.push({ label: 'Peso', value: `${product.pesoKg} kg` });
-                            const dims = [product.altoMm && `${product.altoMm}mm`, product.anchoMm && `${product.anchoMm}mm`, product.largoMm && `${product.largoMm}mm`].filter(Boolean).join(' × ');
+                            if (productData.color) cards.push({ label: 'Color', value: productData.color, icon: <Sparkles className="w-4 h-4" /> });
+                            if (productData.material) cards.push({ label: 'Material', value: productData.material, icon: <PackageCheck className="w-4 h-4" /> });
+                            if (productData.contenido) cards.push({ label: 'Contenido', value: `${productData.contenido}${productData.unidadMedida ? ' ' + productData.unidadMedida : ''}`, icon: <Info className="w-4 h-4" /> });
+                            if (productData.presentacion) cards.push({ label: 'Presentación', value: productData.presentacion });
+                            if (productData.pesoKg != null) cards.push({ label: 'Peso', value: `${productData.pesoKg} kg` });
+                            const dims = [productData.altoMm && `${productData.altoMm}mm`, productData.anchoMm && `${productData.anchoMm}mm`, productData.largoMm && `${productData.largoMm}mm`].filter(Boolean).join(' × ');
                             if (dims) cards.push({ label: 'Dimensiones', value: dims });
 
                             return cards.length > 0 ? (
@@ -196,7 +256,7 @@ export default function ProductDetailView({ product }: ProductDetailViewProps) {
                                     Especificaciones Detalladas
                                 </h3>
                             </div>
-                            {Object.entries(product.fullSpecs ?? product.specs).map(([key, val], idx) => (
+                            {Object.entries(productData.fullSpecs ?? productData.specs).map(([key, val], idx) => (
                                 <div
                                     key={key}
                                     className={`flex py-4 px-6 ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'} 
@@ -216,7 +276,7 @@ export default function ProductDetailView({ product }: ProductDetailViewProps) {
 
                     {/* Sidebar */}
                     <div className="space-y-6">
-                        {product.notaTecnica && (
+                        {productData.notaTecnica && (
                             <div className="bg-orange-600 rounded-2xl p-6 text-white relative overflow-hidden shadow-lg">
                                 <div className="absolute -bottom-4 -right-4 opacity-10">
                                     <Info className="w-28 h-28" />
@@ -231,19 +291,19 @@ export default function ProductDetailView({ product }: ProductDetailViewProps) {
                                         </p>
                                     </div>
                                     <p className="text-base font-medium leading-relaxed italic whitespace-pre-line">
-                                        {product.notaTecnica}
+                                        {productData.notaTecnica}
                                     </p>
                                 </div>
                             </div>
                         )}
-                        {product.recursos && product.recursos.length > 0 && (
+                        {productData.recursos && productData.recursos.length > 0 && (
                             <div>
                                 <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider mb-4 flex items-center gap-2">
                                     <Download className="w-4 h-4" />
                                     Recursos Descargables
                                 </h3>
                                 <div className="space-y-3">
-                                    {product.recursos.map((doc, idx) => (
+                                    {productData.recursos.map((doc, idx) => (
                                         <a
                                             key={`${doc.label}-${idx}`}
                                             href={doc.url}

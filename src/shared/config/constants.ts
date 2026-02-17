@@ -2,6 +2,7 @@
 export const APP_NAME = 'MiPortalVentas';
 export const APP_LOGO_INITIALS = 'MP';
 export const APP_TAGLINE = 'Catálogo Digital de Productos de Construcción';
+export const APP_VERSION = 'V2.1.0';
 
 // --- Navigation ---
 export const NAV_LINKS = [

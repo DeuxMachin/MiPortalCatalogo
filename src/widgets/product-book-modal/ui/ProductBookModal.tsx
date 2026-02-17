@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { X, ChevronLeft, ChevronRight, Download, Info, Package, Clock, ShoppingCart, Maximize2 } from 'lucide-react';
 import type { Product } from '@/src/entities/product/model/types';
 import { useProductInteractionTracker } from '@/src/features/product-interaction';
@@ -18,6 +18,14 @@ export default function ProductBookModal({ product, isOpen, onClose }: ProductBo
     const [hoverZoom, setHoverZoom] = useState(false);
     const [zoomPos, setZoomPos] = useState({ x: 0, y: 0, width: 0, height: 0 });
     const [isImageExpanded, setIsImageExpanded] = useState(false);
+    const variants = useMemo(() => product.variants ?? [], [product.variants]);
+    const [selectedVariantId, setSelectedVariantId] = useState<string>(() => {
+        const active = variants.find((variant) => variant.isActive);
+        return active?.id ?? variants[0]?.id ?? '';
+    });
+    const effectiveVariantId = variants.some((variant) => variant.id === selectedVariantId)
+        ? selectedVariantId
+        : (variants.find((variant) => variant.isActive)?.id ?? variants[0]?.id ?? '');
     const { trackClick } = useProductInteractionTracker();
     const LENS_SIZE = 170;
     const LENS_ZOOM = 2.3;
@@ -63,24 +71,52 @@ export default function ProductBookModal({ product, isOpen, onClose }: ProductBo
         }
     }, [handleClose, isOpen]);
 
+    const selectedVariant = useMemo(
+        () => variants.find((variant) => variant.id === effectiveVariantId) ?? variants[0],
+        [effectiveVariantId, variants],
+    );
+
+    const productData = useMemo(
+        () => ({
+            ...product,
+            sku: selectedVariant?.sku ?? product.sku,
+            price: selectedVariant?.price ?? product.price,
+            unit: selectedVariant?.unit ?? product.unit,
+            stock: selectedVariant?.stock ?? product.stock,
+            quickSpecs: selectedVariant?.quickSpecs ?? product.quickSpecs,
+            specs: selectedVariant?.specs ?? product.specs,
+            fullSpecs: selectedVariant?.specs ?? product.fullSpecs,
+            color: selectedVariant?.color ?? product.color,
+            material: selectedVariant?.material ?? product.material,
+            contenido: selectedVariant?.contenido ?? product.contenido,
+            unidadMedida: selectedVariant?.unidadVenta ?? product.unidadMedida,
+            presentacion: selectedVariant?.presentacion ?? product.presentacion,
+            pesoKg: selectedVariant?.pesoKg ?? product.pesoKg,
+            altoMm: selectedVariant?.altoMm ?? product.altoMm,
+            anchoMm: selectedVariant?.anchoMm ?? product.anchoMm,
+            largoMm: selectedVariant?.largoMm ?? product.largoMm,
+        }),
+        [product, selectedVariant],
+    );
+
     if (!isOpen && !isClosing) return null;
 
     // Construir cards de ficha técnica
     const technicalCards: { label: string; value: string }[] = [];
-    if (product.color) technicalCards.push({ label: 'Color', value: product.color });
-    if (product.material) technicalCards.push({ label: 'Material', value: product.material });
-    if (product.contenido) {
+    if (productData.color) technicalCards.push({ label: 'Color', value: productData.color });
+    if (productData.material) technicalCards.push({ label: 'Material', value: productData.material });
+    if (productData.contenido) {
         technicalCards.push({
             label: 'Contenido',
-            value: `${product.contenido}${product.unidadMedida ? ' ' + product.unidadMedida : ''}`,
+            value: `${productData.contenido}${productData.unidadMedida ? ' ' + productData.unidadMedida : ''}`,
         });
     }
-    if (product.presentacion) technicalCards.push({ label: 'Presentación', value: product.presentacion });
-    if (product.pesoKg != null) technicalCards.push({ label: 'Peso', value: `${product.pesoKg} kg` });
+    if (productData.presentacion) technicalCards.push({ label: 'Presentación', value: productData.presentacion });
+    if (productData.pesoKg != null) technicalCards.push({ label: 'Peso', value: `${productData.pesoKg} kg` });
     const dims = [
-        product.altoMm && `${product.altoMm}mm`,
-        product.anchoMm && `${product.anchoMm}mm`,
-        product.largoMm && `${product.largoMm}mm`,
+        productData.altoMm && `${productData.altoMm}mm`,
+        productData.anchoMm && `${productData.anchoMm}mm`,
+        productData.largoMm && `${productData.largoMm}mm`,
     ]
         .filter(Boolean)
         .join(' × ');
@@ -159,7 +195,7 @@ export default function ProductBookModal({ product, isOpen, onClose }: ProductBo
                                     />
                                 )}
 
-                                {product.stock === 'EN STOCK' && (
+                                {productData.stock === 'EN STOCK' && (
                                     <div className="absolute top-4 left-4">
                                         <span className="bg-emerald-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-lg">
                                             ✓ Stock en Planta
@@ -250,28 +286,46 @@ export default function ProductBookModal({ product, isOpen, onClose }: ProductBo
                             </div>
                         )}
 
-                        {/* Título y SKU */}
+                        {/* Título */}
                         <div className="mb-6">
-                            <div className="text-sm text-slate-500 font-semibold mb-2 flex items-center gap-2">
-                                <Package className="w-4 h-4" />
-                                SKU: {product.sku}
-                            </div>
                             <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-slate-900 leading-tight mb-4">
-                                {product.title}
+                                {productData.title}
                             </h1>
+
+                            {variants.length > 0 && (
+                                <div className="mb-4">
+                                    <label className="block text-xs font-bold uppercase tracking-wide text-slate-500 mb-2">
+                                        Variante
+                                    </label>
+                                    <select
+                                        value={effectiveVariantId}
+                                        onChange={(event) => setSelectedVariantId(event.target.value)}
+                                        className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-white text-sm font-semibold text-slate-700"
+                                    >
+                                        {variants.map((variant) => {
+                                            const labelParts = [variant.presentacion, variant.medida].filter(Boolean);
+                                            return (
+                                                <option key={variant.id} value={variant.id}>
+                                                    {labelParts.join(' · ') || `Formato ${variant.id.slice(0, 6)}`}
+                                                </option>
+                                            );
+                                        })}
+                                    </select>
+                                </div>
+                            )}
                         </div>
 
                         {/* Precio */}
-                        {product.precioVisible !== false ? (
+                        {productData.precioVisible !== false ? (
                             <div className="bg-white border-2 border-orange-200 rounded-2xl p-6 mb-6 shadow-md">
                                 <div className="flex items-baseline gap-2 mb-2">
                                     <span className="text-sm text-slate-500 font-semibold">Precio Unitario</span>
                                 </div>
                                 <div className="flex items-baseline gap-2 mb-3">
                                     <span className="text-3xl sm:text-4xl font-extrabold text-slate-900">
-                                        ${formatPrice(product.price)}
+                                        ${formatPrice(productData.price)}
                                     </span>
-                                    <span className="text-base sm:text-lg text-slate-500 font-semibold">{product.unit}</span>
+                                    <span className="text-base sm:text-lg text-slate-500 font-semibold">{productData.unit}</span>
                                 </div>
                                 <div className="flex items-center gap-2 text-sm text-slate-600 pt-3 border-t border-orange-100">
                                     <Clock className="w-4 h-4 text-orange-600" />
@@ -287,19 +341,10 @@ export default function ProductBookModal({ product, isOpen, onClose }: ProductBo
                             </div>
                         )}
 
-                        {/* Descripción */}
-                        <div className="mb-6">
-                            <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wide mb-3 flex items-center gap-2">
-                                <Info className="w-4 h-4" />
-                                Descripción
-                            </h3>
-                            <p className="text-slate-700 leading-relaxed">{product.description}</p>
-                        </div>
-
                         {/* Quick Specs */}
-                        {product.quickSpecs && product.quickSpecs.length > 0 && (
+                        {productData.quickSpecs && productData.quickSpecs.length > 0 && (
                             <div className="grid grid-cols-2 gap-3">
-                                {product.quickSpecs.map((spec, idx) => (
+                                {productData.quickSpecs.map((spec, idx) => (
                                     <div
                                         key={idx}
                                         className="bg-white border border-slate-200 rounded-xl p-4 hover:border-orange-300 hover:shadow-md transition-all"
@@ -329,6 +374,18 @@ export default function ProductBookModal({ product, isOpen, onClose }: ProductBo
                             </p>
                         </div>
 
+                        {productData.description && (
+                            <div className="mb-8 bg-slate-50 border border-slate-200 rounded-xl p-5">
+                                <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wide mb-2">
+                                    Descripción
+                                </h3>
+                                <p className="text-sm text-slate-700 leading-relaxed">
+                                    {productData.description.substring(0, 300)}
+                                    {productData.description.length > 300 ? '...' : ''}
+                                </p>
+                            </div>
+                        )}
+
                         {/* Cards de características principales */}
                         {technicalCards.length > 0 && (
                             <div className="mb-8">
@@ -357,7 +414,7 @@ export default function ProductBookModal({ product, isOpen, onClose }: ProductBo
                                 Especificaciones Detalladas
                             </h3>
                             <div className="bg-slate-50 rounded-2xl overflow-hidden border border-slate-200">
-                                {Object.entries(product.fullSpecs ?? product.specs).map(([key, val], idx) => (
+                                {Object.entries(productData.fullSpecs ?? productData.specs).map(([key, val], idx) => (
                                     <div
                                         key={key}
                                         className={`flex py-3 px-5 ${
@@ -375,7 +432,7 @@ export default function ProductBookModal({ product, isOpen, onClose }: ProductBo
                         </div>
 
                         {/* Nota Técnica */}
-                        {product.notaTecnica && (
+                        {productData.notaTecnica && (
                             <div className="mb-8">
                                 <div className="bg-orange-600 rounded-2xl p-6 text-white shadow-lg">
                                     <div className="flex items-center gap-2 mb-3">
@@ -383,21 +440,21 @@ export default function ProductBookModal({ product, isOpen, onClose }: ProductBo
                                         <h3 className="text-sm font-bold uppercase tracking-wider">Nota Técnica</h3>
                                     </div>
                                     <p className="text-base leading-relaxed italic whitespace-pre-line">
-                                        {product.notaTecnica}
+                                        {productData.notaTecnica}
                                     </p>
                                 </div>
                             </div>
                         )}
 
                         {/* Recursos Descargables */}
-                        {product.recursos && product.recursos.length > 0 && (
+                        {productData.recursos && productData.recursos.length > 0 && (
                             <div className="mb-8">
                                 <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wide mb-4 flex items-center gap-2">
                                     <Download className="w-4 h-4" />
                                     Recursos Descargables
                                 </h3>
                                 <div className="space-y-3">
-                                    {product.recursos.map((doc, idx) => (
+                                    {productData.recursos.map((doc, idx) => (
                                         <a
                                             key={idx}
                                             href={doc.url}

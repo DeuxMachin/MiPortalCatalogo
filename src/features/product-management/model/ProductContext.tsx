@@ -10,7 +10,7 @@ import {
     useState,
     type ReactNode,
 } from 'react';
-import type { Product } from '@/src/entities/product/model/types';
+import type { Product, ProductVariant } from '@/src/entities/product/model/types';
 import { createProductUseCase } from '@/src/features/product-management/application/CreateProduct';
 import { deleteProductUseCase } from '@/src/features/product-management/application/DeleteProduct';
 import { publishProductUseCase } from '@/src/features/product-management/application/PublishProduct';
@@ -82,6 +82,14 @@ function toNumber(value: unknown): number | undefined {
     return Number.isFinite(num) ? num : undefined;
 }
 
+function normalizeVariantStock(value: unknown): Product['stock'] {
+    const raw = String(value ?? '').toUpperCase().trim();
+    if (raw === 'EN STOCK' || raw === 'SIN STOCK' || raw === 'A PEDIDO' || raw === 'BAJO STOCK') {
+        return raw as Product['stock'];
+    }
+    return 'EN STOCK';
+}
+
 /* ─── In-memory cache shared across all hook instances ─── */
 let _cache: Product[] | null = null;
 let _cacheTs = 0;
@@ -96,9 +104,41 @@ function isCacheValid(): boolean {
 
 function mapRowToProduct(row: any, resolveImageUrl: (pathOrUrl: string) => string): Product {
     const extras = (row.especificacion_variada ?? {}) as Record<string, any>;
-    const specs = (extras.specs && typeof extras.specs === 'object') ? extras.specs : {};
-    const quickSpecs = Array.isArray(row.quick_specs) ? row.quick_specs : [];
+    const masterSpecs = (extras.specs && typeof extras.specs === 'object') ? extras.specs : {};
+    const masterQuickSpecs = Array.isArray(row.quick_specs) ? row.quick_specs : [];
     const recursos = Array.isArray(row.recursos) ? row.recursos : [];
+
+    const variantRows = Array.isArray(row.producto_variantes) ? row.producto_variantes : [];
+    const variants: ProductVariant[] = variantRows.map((variant: any): ProductVariant => {
+        const variantExtras = (variant.especificacion_variada ?? {}) as Record<string, any>;
+        const variantSpecs = (variantExtras.specs && typeof variantExtras.specs === 'object') ? variantExtras.specs : {};
+        const variantQuickSpecs = Array.isArray(variant.quick_specs) ? variant.quick_specs : [];
+
+        return {
+            id: String(variant.id),
+            sku: String(variant.sku ?? ''),
+            price: Number(variant.precio ?? 0),
+            unit: String(variant.moneda ?? 'CLP'),
+            stock: normalizeVariantStock(variant.estado_stock),
+            medida: variant.medida ?? undefined,
+            presentacion: variant.presentacion ?? undefined,
+            unidadVenta: variant.unidad_venta ?? undefined,
+            altoMm: toNumber(variant.alto_mm),
+            anchoMm: toNumber(variant.ancho_mm),
+            largoMm: toNumber(variant.largo_mm),
+            pesoKg: toNumber(variant.peso_kg),
+            material: variant.material ?? undefined,
+            color: variant.color ?? undefined,
+            contenido: variant.contenido ?? undefined,
+            specs: variantSpecs,
+            quickSpecs: variantQuickSpecs,
+            isActive: Boolean(variant.activo ?? true),
+        };
+    });
+
+    const primaryVariant = variants.find((variant) => variant.isActive) ?? variants[0];
+    const specs = primaryVariant?.specs ?? masterSpecs;
+    const quickSpecs = primaryVariant?.quickSpecs ?? masterQuickSpecs;
 
     const imagePaths = Array.isArray(row.producto_imagenes)
         ? row.producto_imagenes
@@ -112,32 +152,33 @@ function mapRowToProduct(row: any, resolveImageUrl: (pathOrUrl: string) => strin
 
     return {
         id: String(row.id),
-        sku: String(extras.sku ?? row.slug ?? ''),
+        sku: String(primaryVariant?.sku ?? extras.sku ?? row.slug ?? ''),
         title: row.nombre ?? 'Producto Sin Nombre',
         categoryId: String(row.categoria_id ?? ''),
         category: row.categorias?.nombre ?? 'Sin Categoría',
-        price: Number(row.precio ?? 0),
-        unit: row.moneda ?? 'CLP',
-        stock: (extras.stock as Product['stock']) ?? 'EN STOCK',
+        price: Number(primaryVariant?.price ?? row.precio ?? 0),
+        unit: primaryVariant?.unit ?? row.moneda ?? 'CLP',
+        stock: primaryVariant?.stock ?? normalizeVariantStock(extras.stock),
         description: row.descripcion ?? '',
         specs,
         fullSpecs: specs,
         images: images.length > 0 ? images : [DEFAULT_IMAGE],
         isPublished: row.activo ?? true,
         precioVisible: row.precio_visible ?? true,
-        color: row.color ?? undefined,
-        material: row.material ?? undefined,
-        contenido: extras.contenido ?? undefined,
-        unidadMedida: extras.unidadMedida ?? undefined,
-        presentacion: extras.presentacion ?? undefined,
-        pesoKg: toNumber(row.peso_kg),
-        altoMm: toNumber(row.alto_mm),
-        anchoMm: toNumber(row.ancho_mm),
-        largoMm: toNumber(row.largo_mm),
+        color: primaryVariant?.color ?? row.color ?? undefined,
+        material: primaryVariant?.material ?? row.material ?? undefined,
+        contenido: primaryVariant?.contenido ?? extras.contenido ?? undefined,
+        unidadMedida: primaryVariant?.unidadVenta ?? extras.unidadMedida ?? undefined,
+        presentacion: primaryVariant?.presentacion ?? extras.presentacion ?? undefined,
+        pesoKg: primaryVariant?.pesoKg ?? toNumber(row.peso_kg),
+        altoMm: primaryVariant?.altoMm ?? toNumber(row.alto_mm),
+        anchoMm: primaryVariant?.anchoMm ?? toNumber(row.ancho_mm),
+        largoMm: primaryVariant?.largoMm ?? toNumber(row.largo_mm),
         quickSpecs,
         notaTecnica: row.nota_tecnica ?? undefined,
         recursos,
         createdAt: row.creado_en ?? undefined,
+        variants,
     };
 }
 
@@ -185,7 +226,7 @@ export function ProductProvider({ children }: { children: ReactNode }) {
         try {
             const { data, error } = await sb.current
                 .from('productos')
-                .select('*, categorias (nombre), producto_imagenes (path_storage, orden)')
+                .select('*, categorias (nombre), producto_imagenes (path_storage, orden), producto_variantes (*)')
                 .order('creado_en', { ascending: false });
 
             clearTimeout(timeout);
@@ -398,6 +439,68 @@ export function ProductProvider({ children }: { children: ReactNode }) {
         [sb, toWebpBlob, triggerRefetch],
     );
 
+    const setProductVariantsCore = useCallback(
+        async (productId: string, variants: Product['variants'] = []): Promise<ProductResult> => {
+            try {
+                // Filtrar solo variantes con datos válidos
+                const normalized = (variants ?? [])
+                    .filter((variant) => variant && (variant?.sku?.trim() || variant?.price || variant?.stock))
+                    .map((variant) => {
+                        // Auto-generar SKU si falta
+                        const finalSku = variant.sku?.trim() || `SKU-${productId}-${Date.now()}`;
+                        return {
+                            producto_id: productId,
+                            sku: finalSku,
+                            precio: Number(variant.price ?? 0),
+                            moneda: variant.unit ?? 'CLP',
+                            estado_stock: variant.stock ?? 'EN STOCK',
+                            medida: variant.medida ?? null,
+                            presentacion: variant.presentacion ?? null,
+                            unidad_venta: variant.unidadVenta ?? null,
+                            alto_mm: variant.altoMm ?? null,
+                            ancho_mm: variant.anchoMm ?? null,
+                            largo_mm: variant.largoMm ?? null,
+                            peso_kg: variant.pesoKg ?? null,
+                            material: variant.material ?? null,
+                            color: variant.color ?? null,
+                            contenido: variant.contenido ?? null,
+                            especificacion_variada: { specs: variant.specs ?? {} },
+                            quick_specs: variant.quickSpecs ?? [],
+                            activo: variant.isActive ?? true,
+                        };
+                    });
+
+                console.log(`[setProductVariantsCore] Guardando ${normalized.length} variantes para producto ${productId}`);
+
+                const { error: deleteErr } = await sb.current
+                    .from('producto_variantes')
+                    .delete()
+                    .eq('producto_id', productId);
+
+                if (deleteErr) {
+                    console.error('[setProductVariantsCore] Error eliminando variantes:', deleteErr.message);
+                    return { success: false, error: deleteErr.message };
+                }
+
+                if (normalized.length > 0) {
+                    const { error: insertErr } = await sb.current
+                        .from('producto_variantes')
+                        .insert(normalized);
+                    if (insertErr) {
+                        console.error('[setProductVariantsCore] Error insertando variantes:', insertErr.message);
+                        return { success: false, error: insertErr.message };
+                    }
+                }
+
+                return { success: true };
+            } catch (err) {
+                console.error('[setProductVariantsCore] Exception:', err);
+                return { success: false, error: normalizeSupabaseError(err, 'No se pudieron guardar las variantes') };
+            }
+        },
+        [],
+    );
+
     useEffect(() => {
         queueMicrotask(() => {
             void fetchProducts();
@@ -413,30 +516,13 @@ export function ProductProvider({ children }: { children: ReactNode }) {
                 const payload = {
                     nombre: data.title,
                     slug,
-                    precio: data.price ?? null,
-                    moneda: data.unit ?? 'CLP',
                     descripcion: data.description ?? null,
-                    unidad_venta: data.unidadMedida ?? null,
                     categoria_id: data.categoryId,
                     activo: data.isPublished ?? true,
                     precio_visible: data.precioVisible ?? true,
-                    alto_mm: data.altoMm ?? null,
-                    ancho_mm: data.anchoMm ?? null,
-                    largo_mm: data.largoMm ?? null,
-                    peso_kg: data.pesoKg ?? null,
-                    material: data.material ?? null,
-                    color: data.color ?? null,
-                    especificacion_variada: {
-                        specs: data.fullSpecs ?? data.specs ?? {},
-                        sku: data.sku ?? null,
-                        stock: data.stock ?? null,
-                        contenido: data.contenido ?? null,
-                        unidadMedida: data.unidadMedida ?? null,
-                        presentacion: data.presentacion ?? null,
-                    },
-                    quick_specs: data.quickSpecs ?? [],
                     nota_tecnica: data.notaTecnica ?? null,
                     recursos: data.recursos ?? [],
+                    tabs: {},
                 };
 
                 const { data: inserted, error } = await sb.current
@@ -461,6 +547,35 @@ export function ProductProvider({ children }: { children: ReactNode }) {
 
                 const productId = String(inserted.id);
 
+                const variants = (data.variants ?? []).filter((variant) => variant.sku?.trim());
+                if (variants.length > 0) {
+                    const variantsRes = await setProductVariantsCore(productId, variants);
+                    if (!variantsRes.success) return variantsRes;
+                } else {
+                    const fallbackVariant = {
+                        id: `new-${productId}`,
+                        sku: data.sku ?? `SKU-${Date.now()}`,
+                        price: data.price ?? 0,
+                        unit: data.unit ?? 'CLP',
+                        stock: data.stock ?? 'EN STOCK',
+                        presentacion: data.presentacion,
+                        medida: data.contenido,
+                        unidadVenta: data.unidadMedida,
+                        altoMm: data.altoMm,
+                        anchoMm: data.anchoMm,
+                        largoMm: data.largoMm,
+                        pesoKg: data.pesoKg,
+                        material: data.material,
+                        color: data.color,
+                        contenido: data.contenido,
+                        specs: data.fullSpecs ?? data.specs,
+                        quickSpecs: data.quickSpecs,
+                        isActive: true,
+                    };
+                    const variantsRes = await setProductVariantsCore(productId, [fallbackVariant]);
+                    if (!variantsRes.success) return variantsRes;
+                }
+
                 const inputs = (imageInputs ?? data.images ?? []) as ProductImageInput[];
                 if (Array.isArray(inputs) && inputs.filter(Boolean).length > 0) {
                     const imgRes = await setProductImagesCore(productId, inputs);
@@ -484,7 +599,7 @@ export function ProductProvider({ children }: { children: ReactNode }) {
                 return { success: false, error: normalizeSupabaseError(err, 'No se pudo crear el producto') };
             }
         },
-        [setProductImagesCore, triggerRefetch],
+        [setProductImagesCore, setProductVariantsCore, triggerRefetch],
     );
 
     const updateProductCore = useCallback(
@@ -498,42 +613,12 @@ export function ProductProvider({ children }: { children: ReactNode }) {
                     const base = updates.sku?.trim() || updates.title || current?.sku || current?.title || `producto-${Date.now()}`;
                     payload.slug = toSlug(base);
                 }
-                if (updates.price !== undefined) payload.precio = updates.price;
-                if (updates.unit !== undefined) payload.moneda = updates.unit;
                 if (updates.description !== undefined) payload.descripcion = updates.description;
                 if (updates.categoryId !== undefined) payload.categoria_id = updates.categoryId;
                 if (updates.isPublished !== undefined) payload.activo = updates.isPublished;
                 if (updates.precioVisible !== undefined) payload.precio_visible = updates.precioVisible;
-                if (updates.altoMm !== undefined) payload.alto_mm = updates.altoMm ?? null;
-                if (updates.anchoMm !== undefined) payload.ancho_mm = updates.anchoMm ?? null;
-                if (updates.largoMm !== undefined) payload.largo_mm = updates.largoMm ?? null;
-                if (updates.pesoKg !== undefined) payload.peso_kg = updates.pesoKg ?? null;
-                if (updates.material !== undefined) payload.material = updates.material ?? null;
-                if (updates.color !== undefined) payload.color = updates.color ?? null;
-                if (updates.unidadMedida !== undefined) payload.unidad_venta = updates.unidadMedida ?? null;
-                if (updates.quickSpecs !== undefined) payload.quick_specs = updates.quickSpecs ?? [];
                 if (updates.notaTecnica !== undefined) payload.nota_tecnica = updates.notaTecnica ?? null;
                 if (updates.recursos !== undefined) payload.recursos = updates.recursos ?? [];
-
-                const hasSpecsUpdate =
-                    updates.specs !== undefined ||
-                    updates.fullSpecs !== undefined ||
-                    updates.sku !== undefined ||
-                    updates.stock !== undefined ||
-                    updates.contenido !== undefined ||
-                    updates.unidadMedida !== undefined ||
-                    updates.presentacion !== undefined;
-
-                if (hasSpecsUpdate) {
-                    payload.especificacion_variada = {
-                        specs: updates.fullSpecs ?? updates.specs ?? current?.fullSpecs ?? current?.specs ?? {},
-                        sku: updates.sku ?? current?.sku ?? null,
-                        stock: updates.stock ?? current?.stock ?? null,
-                        contenido: updates.contenido ?? current?.contenido ?? null,
-                        unidadMedida: updates.unidadMedida ?? current?.unidadMedida ?? null,
-                        presentacion: updates.presentacion ?? current?.presentacion ?? null,
-                    };
-                }
 
                 if (Object.keys(payload).length > 0) {
                     const { data: updatedRows, error } = await sb.current
@@ -566,6 +651,11 @@ export function ProductProvider({ children }: { children: ReactNode }) {
                     if (!imgRes.success) return imgRes;
                 }
 
+                if (updates.variants !== undefined) {
+                    const variantRes = await setProductVariantsCore(id, updates.variants);
+                    if (!variantRes.success) return variantRes;
+                }
+
                 if (options?.refetch !== false) {
                     triggerRefetch();
                 }
@@ -584,7 +674,7 @@ export function ProductProvider({ children }: { children: ReactNode }) {
                 return { success: false, error: normalizeSupabaseError(err, 'No se pudo actualizar el producto') };
             }
         },
-        [setProductImagesCore, state.products, triggerRefetch],
+        [setProductImagesCore, setProductVariantsCore, state.products, triggerRefetch],
     );
 
     const deleteProductCore = useCallback(
@@ -620,6 +710,15 @@ export function ProductProvider({ children }: { children: ReactNode }) {
                     if (removeErr) {
                         console.warn('[Products] Storage remove error:', removeErr.message);
                     }
+                }
+
+                const { error: variantsErr } = await sb.current
+                    .from('producto_variantes')
+                    .delete()
+                    .eq('producto_id', id);
+                if (variantsErr) {
+                    console.error('[Products] Variants delete error:', variantsErr.message);
+                    return { success: false, error: variantsErr.message };
                 }
 
                 const { data: deletedRows, error } = await sb.current
