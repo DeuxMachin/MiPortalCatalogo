@@ -17,6 +17,7 @@ import { publishProductUseCase } from '@/src/features/product-management/applica
 import { reorderImagesUseCase } from '@/src/features/product-management/application/ReorderImages';
 import { reportError } from '@/src/shared/lib/errorTracking';
 import { getSupabaseBrowserClient } from '@/src/shared/lib/supabase';
+import { logAdminAudit } from '@/src/shared/lib/adminAudit';
 
 const DEFAULT_IMAGE =
     'https://images.unsplash.com/photo-1504917595217-d4dc5ebe6122?auto=format&fit=crop&q=80&w=600';
@@ -584,6 +585,13 @@ export function ProductProvider({ children }: { children: ReactNode }) {
                     triggerRefetch();
                 }
 
+                await logAdminAudit(sb.current, {
+                    action: 'CREAR',
+                    table: 'productos',
+                    recordId: productId,
+                    description: `CREAR producto "${data.title}"`,
+                });
+
                 return { success: true, id: productId };
             } catch (err) {
                 console.error('[Products] Insert crashed:', err);
@@ -659,6 +667,15 @@ export function ProductProvider({ children }: { children: ReactNode }) {
                 if (options?.refetch !== false) {
                     triggerRefetch();
                 }
+
+                const titleForAudit = updates.title ?? current?.title ?? id;
+                await logAdminAudit(sb.current, {
+                    action: 'CREAR',
+                    table: 'productos',
+                    recordId: id,
+                    description: `EDITAR producto "${titleForAudit}"`,
+                });
+
                 return { success: true };
             } catch (err) {
                 console.error('[Products] Update crashed:', err);
@@ -749,6 +766,13 @@ export function ProductProvider({ children }: { children: ReactNode }) {
                 if (!deletedRows || deletedRows.length === 0) {
                     return { success: false, error: 'No se pudo eliminar: producto no encontrado.' };
                 }
+
+                await logAdminAudit(sb.current, {
+                    action: 'ELIMINAR',
+                    table: 'productos',
+                    recordId: id,
+                    description: 'ELIMINAR producto',
+                });
 
                 triggerRefetch();
                 return { success: true };

@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/src/features/auth';
 import Logo from '@/src/shared/ui/Logo';
-import { Package, LogOut, ArrowLeft } from 'lucide-react';
+import { Package, LogOut, ArrowLeft, Layers, History, UserPlus } from 'lucide-react';
 
 interface AdminNavItem {
     label: string;
@@ -14,7 +14,10 @@ interface AdminNavItem {
 }
 
 const ADMIN_NAV: AdminNavItem[] = [
-    { label: 'Productos', href: '/admin', icon: Package },
+    { label: 'Categorías', href: '/admin/categories', icon: Layers },
+    { label: 'Productos', href: '/admin/products', icon: Package },
+    { label: 'Historial', href: '/admin/history', icon: History },
+    { label: 'Usuarios', href: '/admin/users', icon: UserPlus },
 ];
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
@@ -57,7 +60,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                 <nav className="flex-1 p-3 space-y-1">
                     {ADMIN_NAV.map((item) => {
                         const Icon = item.icon;
-                        const isActive = pathname === item.href || pathname.startsWith('/admin/products');
+                        const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
                         const cls = `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all
                   ${isActive
                                 ? 'text-orange-600 bg-orange-50'

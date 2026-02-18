@@ -4,6 +4,10 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { getSupabaseBrowserClient } from '@/src/shared/lib/supabase';
 import { reportError } from '@/src/shared/lib/errorTracking';
 import type { Category } from '@/src/entities/category/model/types';
+import { SupabaseCategoryRepository } from '@/src/features/category-management/infrastructure/SupabaseCategoryRepository';
+import { createCategoryUseCase } from '@/src/features/category-management/application/CreateCategory';
+import { updateCategoryUseCase } from '@/src/features/category-management/application/UpdateCategory';
+import { deleteCategoryUseCase, deleteCategoryWithProductsUseCase } from '@/src/features/category-management/application/DeleteCategory';
 
 /** Genera un slug URL-safe a partir de un nombre. */
 function toSlug(name: string): string {
@@ -27,6 +31,7 @@ function isCacheValid(): boolean {
 
 export function useCategories() {
     const sb = useRef(getSupabaseBrowserClient());
+    const repository = useRef(new SupabaseCategoryRepository(sb.current));
     const [categories, setCategories] = useState<Category[]>(_cache ?? []);
     const [loading, setLoading] = useState(!isCacheValid());
     const [error, setError] = useState<string | null>(null);
@@ -49,18 +54,15 @@ export function useCategories() {
         }, 3000);
 
         try {
-            const { data, error: fetchErr } = await sb.current
-                .from('categorias')
-                .select('*')
-                .order('nombre', { ascending: true });
+            const { data, error: fetchErr } = await repository.current.listCategories();
 
             clearTimeout(timeout);
 
             if (fetchErr) {
-                console.error('[Categories] Fetch error:', fetchErr.message);
-                setError(fetchErr.message);
+                console.error('[Categories] Fetch error:', fetchErr);
+                setError(fetchErr);
                 void reportError({
-                    error: fetchErr.message,
+                    error: fetchErr,
                     severity: 'error',
                     source: 'client',
                     route: '/catalog',
@@ -68,7 +70,7 @@ export function useCategories() {
                     context: { module: 'useCategories' },
                 });
             } else {
-                const cats = (data as Category[]) ?? [];
+                const cats = data ?? [];
                 _cache = cats;
                 _cacheTs = Date.now();
                 setCategories(cats);
@@ -97,18 +99,16 @@ export function useCategories() {
     /* ---------- Create ---------- */
     const addCategory = useCallback(
         async (nombre: string) => {
-            const slug = toSlug(nombre);
-            const { data, error: insertErr } = await sb.current
-                .from('categorias')
-                .insert({ nombre, slug })
-                .select()
-                .single();
+            const result = await createCategoryUseCase(repository.current, {
+                nombre,
+                slug: toSlug(nombre),
+            });
 
-            if (insertErr) {
-                console.error('[Categories] Insert error:', insertErr.message);
-                setError(insertErr.message);
+            if (!result.success || !result.data) {
+                console.error('[Categories] Insert error:', result.error);
+                setError(result.error ?? 'No se pudo crear la categoría.');
                 void reportError({
-                    error: insertErr.message,
+                    error: result.error ?? 'Insert error',
                     severity: 'error',
                     source: 'client',
                     route: '/admin/categories',
@@ -118,13 +118,14 @@ export function useCategories() {
                 });
                 return null;
             }
-            const updated = [...(categories), data as Category].sort((a, b) =>
+
+            const updated = [...(categories), result.data as Category].sort((a, b) =>
                 a.nombre.localeCompare(b.nombre),
             );
             _cache = updated;
             _cacheTs = Date.now();
             setCategories(updated);
-            return data as Category;
+            return result.data as Category;
         },
         [categories],
     );
@@ -137,16 +138,13 @@ export function useCategories() {
                 payload.slug = toSlug(updates.nombre);
             }
 
-            const { error: updateErr } = await sb.current
-                .from('categorias')
-                .update(payload)
-                .eq('id', id);
+            const result = await updateCategoryUseCase(repository.current, { id, ...payload });
 
-            if (updateErr) {
-                console.error('[Categories] Update error:', updateErr.message);
-                setError(updateErr.message);
+            if (!result.success) {
+                console.error('[Categories] Update error:', result.error);
+                setError(result.error ?? 'No se pudo actualizar la categoría.');
                 void reportError({
-                    error: updateErr.message,
+                    error: result.error ?? 'Update error',
                     severity: 'error',
                     source: 'client',
                     route: '/admin/categories',
@@ -170,16 +168,13 @@ export function useCategories() {
     /* ---------- Delete ---------- */
     const deleteCategory = useCallback(
         async (id: string) => {
-            const { error: delErr } = await sb.current
-                .from('categorias')
-                .delete()
-                .eq('id', id);
+            const result = await deleteCategoryUseCase(repository.current, { id });
 
-            if (delErr) {
-                console.error('[Categories] Delete error:', delErr.message);
-                setError(delErr.message);
+            if (!result.success) {
+                console.error('[Categories] Delete error:', result.error);
+                setError(result.error ?? 'No se pudo eliminar la categoría.');
                 void reportError({
-                    error: delErr.message,
+                    error: result.error ?? 'Delete error',
                     severity: 'error',
                     source: 'client',
                     route: '/admin/categories',
@@ -198,6 +193,28 @@ export function useCategories() {
         [categories],
     );
 
+    const deleteCategoryWithProducts = useCallback(
+        async (
+            id: string,
+            deleteProductById: (productId: string) => Promise<{ success: boolean; error?: string }>,
+        ) => {
+            const result = await deleteCategoryWithProductsUseCase(repository.current, { id }, deleteProductById);
+
+            if (!result.success) {
+                setError(result.error ?? 'No se pudo eliminar la categoría con sus productos.');
+                return { success: false, error: result.error ?? 'No se pudo eliminar la categoría con sus productos.' };
+            }
+
+            const updated = categories.filter((c) => c.id !== id);
+            _cache = updated;
+            _cacheTs = Date.now();
+            setCategories(updated);
+
+            return { success: true };
+        },
+        [categories],
+    );
+
     return {
         categories,
         /** Solo categorías activas — para vistas públicas. */
@@ -207,6 +224,7 @@ export function useCategories() {
         addCategory,
         updateCategory,
         deleteCategory,
+        deleteCategoryWithProducts,
         refetch: () => fetchCategories(true),
     };
 }

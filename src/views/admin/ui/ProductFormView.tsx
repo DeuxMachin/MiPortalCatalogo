@@ -686,7 +686,7 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
 
             if (result.success) {
                 setSaved(true);
-                router.push(isEditing ? '/admin?toast=updated' : '/admin?toast=created');
+                router.push(isEditing ? '/admin/products?toast=updated' : '/admin/products?toast=created');
                 return;
             }
             setSaveError(result.error ?? 'No se pudo guardar el producto.');
@@ -1629,7 +1629,7 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div>
                         <nav className="text-sm text-slate-400 flex items-center gap-1.5 mb-1 font-medium">
-                            <span className="hover:text-orange-600 cursor-pointer" onClick={() => router.push('/admin')}>Admin</span>
+                            <span className="hover:text-orange-600 cursor-pointer" onClick={() => router.push('/admin/products')}>Admin</span>
                             <ChevronRight className="w-3 h-3" />
                             <span className="text-slate-700 font-semibold">{isEditing ? 'Editar' : 'Nuevo'}</span>
                         </nav>
@@ -1639,7 +1639,7 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
                     </div>
                     <div className="flex items-center gap-2 sm:gap-3">
                         <button
-                            onClick={() => router.push('/admin')}
+                            onClick={() => router.push('/admin/products')}
                             className="px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-600 border border-gray-200 hover:bg-slate-50 transition-colors"
                         >
                             Descartar
