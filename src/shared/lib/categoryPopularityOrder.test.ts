@@ -23,4 +23,26 @@ describe('categoryPopularityOrder', () => {
         const result = compareByPopularityCategoryName('Zeta', 'Alfa');
         expect(result).toBeGreaterThan(0);
     });
+
+    it('prioriza el orden de negocio solicitado para categorías principales', () => {
+        const categories = [
+            'TERMINACIONES',
+            'FERRETERIA',
+            'FUNDACIONES',
+            'OBRA GRUESA',
+            'IMPERMEABILIZANTES',
+            'EIFS ENVOLVENTE TERMICO',
+        ];
+
+        const sorted = [...categories].sort((a, b) => compareByPopularityCategoryName(a, b));
+
+        expect(sorted).toEqual([
+            'FUNDACIONES',
+            'OBRA GRUESA',
+            'IMPERMEABILIZANTES',
+            'EIFS ENVOLVENTE TERMICO',
+            'TERMINACIONES',
+            'FERRETERIA',
+        ]);
+    });
 });

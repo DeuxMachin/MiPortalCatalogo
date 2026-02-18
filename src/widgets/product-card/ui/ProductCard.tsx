@@ -209,9 +209,11 @@ function StockBadge({ stock }: { stock: string }) {
                 ? 'bg-blue-50 text-blue-700 border-blue-200'
                 : 'bg-red-50 text-red-700 border-red-200';
 
+    const label = stock === 'SIN STOCK' ? 'Producto sin stock' : stock;
+
     return (
         <span className={`text-xs font-semibold px-2.5 py-0.5 rounded border ${style}`}>
-            {stock}
+            {label}
         </span>
     );
 }

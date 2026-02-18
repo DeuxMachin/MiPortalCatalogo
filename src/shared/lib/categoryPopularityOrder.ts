@@ -1,11 +1,15 @@
 export const POPULAR_CATEGORY_ORDER = [
-    'SEPARADORES PLÁSTICOS Y HORMIGÓN',
     'FUNDACIONES',
+    'OBRA GRUESA',
+    'IMPERMEABILIZANTES',
+    'EIFS ENVOLVENTE TERMICO',
+    'TERMINACIONES',
+    'FERRETERIA',
+    'SEPARADORES PLÁSTICOS Y HORMIGÓN',
     'PAVIMENTOS',
     'CURADORES Y RETARDANTES DE FRAGUADO',
     'EPÓXICOS',
     'DESMOLDANTES',
-    'IMPERMEABILIZANTES',
     'PROMOTORES DE ADHERENCIA',
     'MORTEROS DE REPARACIÓN',
     'NIVELANTES Y AUTONIVELANTES',
@@ -36,9 +40,13 @@ function normalizeCategoryName(name: string): string {
         .toUpperCase();
 }
 
-const ORDER_RANK: Map<string, number> = new Map(
-    POPULAR_CATEGORY_ORDER.map((name, idx) => [normalizeCategoryName(name), idx]),
-);
+const ORDER_RANK: Map<string, number> = POPULAR_CATEGORY_ORDER.reduce((acc, name, idx) => {
+    const normalized = normalizeCategoryName(name);
+    if (!acc.has(normalized)) {
+        acc.set(normalized, idx);
+    }
+    return acc;
+}, new Map<string, number>());
 
 export function getCategoryPopularityRank(categoryName?: string | null): number {
     if (!categoryName) return Number.POSITIVE_INFINITY;

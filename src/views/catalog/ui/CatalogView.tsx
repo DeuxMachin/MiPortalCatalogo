@@ -10,10 +10,12 @@ import { useProducts } from '@/src/features/product-management';
 import { useCategories } from '@/src/features/category-management';
 import type { Product } from '@/src/entities/product/model/types';
 import { getCategoryPopularityRank } from '@/src/shared/lib/categoryPopularityOrder';
+import { useProductPopularity } from '@/src/features/product-interaction';
 
-type SortOption = 'popular' | 'price-asc' | 'price-desc' | 'name-asc';
+type SortOption = 'recommended' | 'popular' | 'price-asc' | 'price-desc' | 'name-asc';
 
 const SORT_OPTIONS: { value: SortOption; label: string }[] = [
+    { value: 'recommended', label: 'Recomendado' },
     { value: 'popular', label: 'Más Populares' },
     { value: 'price-asc', label: 'Precio: Menor a Mayor' },
     { value: 'price-desc', label: 'Precio: Mayor a Menor' },
@@ -23,12 +25,36 @@ const SORT_OPTIONS: { value: SortOption; label: string }[] = [
 export default function CatalogView() {
     const router = useRouter();
     const { products: allProducts, error: productsError } = useProducts();
+    const { popularityByProductId } = useProductPopularity(allProducts);
     const { activeCategories, loading: catsLoading, error: categoriesError } = useCategories();
     const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
-    const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
-    const [sortBy, setSortBy] = useState<SortOption>('popular');
+    const [viewMode, setViewMode] = useState<'grid' | 'list'>(() => {
+        if (typeof window !== 'undefined' && window.innerWidth < 768) {
+            return 'list';
+        }
+        return 'grid';
+    });
+    const [sortBy, setSortBy] = useState<SortOption>('recommended');
     const [sortOpen, setSortOpen] = useState(false);
     const sortRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+
+        const mediaQuery = window.matchMedia('(max-width: 1023px)');
+        const syncResponsiveDefaults = (matchesTabletOrDown: boolean) => {
+            setViewMode(matchesTabletOrDown ? 'list' : 'grid');
+        };
+
+        syncResponsiveDefaults(mediaQuery.matches);
+
+        const onChange = (event: MediaQueryListEvent) => {
+            syncResponsiveDefaults(event.matches);
+        };
+
+        mediaQuery.addEventListener('change', onChange);
+        return () => mediaQuery.removeEventListener('change', onChange);
+    }, []);
 
     // Close sort dropdown on outside click
     useEffect(() => {
@@ -46,12 +72,26 @@ export default function CatalogView() {
 
         const categoryNameById = new Map(activeCategories.map((c) => [c.id, c.nombre] as const));
         const getCategoryName = (p: Product) => categoryNameById.get(String(p.categoryId)) ?? p.category ?? '';
+        const getPopularityScore = (p: Product) => popularityByProductId[p.id]?.score ?? 0;
+        const getCreatedAtTime = (p: Product) => {
+            if (!p.createdAt) return 0;
+            const parsed = Date.parse(p.createdAt);
+            return Number.isNaN(parsed) ? 0 : parsed;
+        };
 
         if (activeCategoryId) {
             products = products.filter((p) => String(p.categoryId) === activeCategoryId);
         }
 
         switch (sortBy) {
+            case 'recommended':
+                products = [...products].sort((a, b) => {
+                    const aRank = getCategoryPopularityRank(getCategoryName(a));
+                    const bRank = getCategoryPopularityRank(getCategoryName(b));
+                    if (aRank !== bRank) return aRank - bRank;
+                    return a.title.localeCompare(b.title, 'es', { sensitivity: 'base' });
+                });
+                break;
             case 'price-asc':
                 products = [...products].sort((a, b) => a.price - b.price);
                 break;
@@ -62,20 +102,22 @@ export default function CatalogView() {
                 products = [...products].sort((a, b) => a.title.localeCompare(b.title));
                 break;
             case 'popular':
+                products = [...products].sort((a, b) => {
+                    const scoreDiff = getPopularityScore(b) - getPopularityScore(a);
+                    if (scoreDiff !== 0) return scoreDiff;
+
+                    const createdDiff = getCreatedAtTime(b) - getCreatedAtTime(a);
+                    if (createdDiff !== 0) return createdDiff;
+
+                    return a.title.localeCompare(b.title, 'es', { sensitivity: 'base' });
+                });
+                break;
             default:
-                if (!activeCategoryId) {
-                    products = [...products].sort((a, b) => {
-                        const aRank = getCategoryPopularityRank(getCategoryName(a));
-                        const bRank = getCategoryPopularityRank(getCategoryName(b));
-                        if (aRank !== bRank) return aRank - bRank;
-                        return a.title.localeCompare(b.title, 'es', { sensitivity: 'base' });
-                    });
-                }
                 break;
         }
 
         return products;
-    }, [activeCategoryId, sortBy, allProducts, activeCategories]);
+    }, [activeCategoryId, sortBy, allProducts, activeCategories, popularityByProductId]);
 
     const activeCategoryName = activeCategoryId
         ? activeCategories.find((c) => c.id === activeCategoryId)?.nombre

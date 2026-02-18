@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -20,11 +20,13 @@ import { reportError } from '@/src/shared/lib/errorTracking';
 import { useProducts } from '@/src/features/product-management';
 import { useCategories } from '@/src/features/category-management';
 import { useProductInteractionTracker, useProductPopularity } from '@/src/features/product-interaction';
+import { getCategoryPopularityRank } from '@/src/shared/lib/categoryPopularityOrder';
 
 type ViewMode = 'grid' | 'list';
-type SortOption = 'popular' | 'price-asc' | 'price-desc' | 'name-asc';
+type SortOption = 'recommended' | 'popular' | 'price-asc' | 'price-desc' | 'name-asc';
 
 const SORT_OPTIONS: { value: SortOption; label: string }[] = [
+    { value: 'recommended', label: 'Recomendado' },
     { value: 'popular', label: 'Mas populares' },
     { value: 'price-asc', label: 'Precio: menor a mayor' },
     { value: 'price-desc', label: 'Precio: mayor a menor' },
@@ -44,10 +46,15 @@ export default function CatalogViewWithModal() {
     const { trackView, trackClick } = useProductInteractionTracker();
     const { popularityByProductId } = useProductPopularity(allProducts);
     const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
-    const [viewMode, setViewMode] = useState<ViewMode>('grid');
+    const [viewMode, setViewMode] = useState<ViewMode>(() => {
+        if (typeof window !== 'undefined' && window.innerWidth <= 1023) {
+            return 'list';
+        }
+        return 'grid';
+    });
     const [searchQuery, setSearchQuery] = useState('');
     const [stockFilter, setStockFilter] = useState<StockStatus | null>(null);
-    const [sortBy, setSortBy] = useState<SortOption>('popular');
+    const [sortBy, setSortBy] = useState<SortOption>('recommended');
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -58,6 +65,42 @@ export default function CatalogViewWithModal() {
         syncSidebar();
         window.addEventListener('resize', syncSidebar);
         return () => window.removeEventListener('resize', syncSidebar);
+    }, []);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+
+        const mediaQuery = window.matchMedia('(max-width: 1023px)');
+        const syncResponsiveDefaults = (matchesTabletOrDown: boolean) => {
+            setViewMode(matchesTabletOrDown ? 'list' : 'grid');
+        };
+
+        syncResponsiveDefaults(mediaQuery.matches);
+
+        const onChange = (event: MediaQueryListEvent) => {
+            syncResponsiveDefaults(event.matches);
+        };
+
+        mediaQuery.addEventListener('change', onChange);
+        return () => mediaQuery.removeEventListener('change', onChange);
+    }, []);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+
+        const mediaQuery = window.matchMedia('(max-width: 1023px)');
+        const syncResponsiveDefaults = (matchesTabletOrDown: boolean) => {
+            setViewMode(matchesTabletOrDown ? 'list' : 'grid');
+        };
+
+        syncResponsiveDefaults(mediaQuery.matches);
+
+        const onChange = (event: MediaQueryListEvent) => {
+            syncResponsiveDefaults(event.matches);
+        };
+
+        mediaQuery.addEventListener('change', onChange);
+        return () => mediaQuery.removeEventListener('change', onChange);
     }, []);
 
     const categoryNameById = useMemo(() => {
@@ -98,6 +141,18 @@ export default function CatalogViewWithModal() {
         }
 
         switch (sortBy) {
+            case 'recommended':
+                products = [...products].sort((a, b) => {
+                    const aRank = getCategoryPopularityRank(getCategoryName(a));
+                    const bRank = getCategoryPopularityRank(getCategoryName(b));
+                    if (aRank !== bRank) return aRank - bRank;
+
+                    const createdDiff = getCreatedAtTime(b) - getCreatedAtTime(a);
+                    if (createdDiff !== 0) return createdDiff;
+
+                    return a.title.localeCompare(b.title, 'es', { sensitivity: 'base' });
+                });
+                break;
             case 'price-asc':
                 products = [...products].sort((a, b) => a.price - b.price);
                 break;
@@ -217,9 +272,9 @@ export default function CatalogViewWithModal() {
                                     <button
                                         onClick={() => router.push('/catalog/categories')}
                                         className="md:hidden text-xs font-semibold text-slate-600 bg-white border border-slate-200 rounded-lg px-3 py-2 hover:border-orange-300 hover:text-orange-600 transition-colors"
-                                        aria-label="Ver categorías"
+                                        aria-label="Ver categorÃ­as"
                                     >
-                                        Categorías
+                                        CategorÃ­as
                                     </button>
 
                                     <div className="flex bg-white border border-slate-200 rounded-lg p-1">
@@ -480,3 +535,6 @@ function CatalogProductCard({
         </div>
     );
 }
+
+
+

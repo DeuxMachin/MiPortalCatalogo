@@ -8,6 +8,7 @@ import { SupabaseCategoryRepository } from '@/src/features/category-management/i
 import { createCategoryUseCase } from '@/src/features/category-management/application/CreateCategory';
 import { updateCategoryUseCase } from '@/src/features/category-management/application/UpdateCategory';
 import { deleteCategoryUseCase, deleteCategoryWithProductsUseCase } from '@/src/features/category-management/application/DeleteCategory';
+import { compareByPopularityCategoryName } from '@/src/shared/lib/categoryPopularityOrder';
 
 /** Genera un slug URL-safe a partir de un nombre. */
 function toSlug(name: string): string {
@@ -29,6 +30,10 @@ function isCacheValid(): boolean {
     return _cache !== null && Date.now() - _cacheTs < CACHE_TTL;
 }
 
+function sortCategoriesByBusinessOrder(items: Category[]): Category[] {
+    return [...items].sort((a, b) => compareByPopularityCategoryName(a.nombre, b.nombre));
+}
+
 export function useCategories() {
     const sb = useRef(getSupabaseBrowserClient());
     const repository = useRef(new SupabaseCategoryRepository(sb.current));
@@ -39,7 +44,7 @@ export function useCategories() {
     /* ---------- Fetch ---------- */
     const fetchCategories = useCallback(async (force = false) => {
         if (!force && isCacheValid()) {
-            setCategories(_cache!);
+            setCategories(sortCategoriesByBusinessOrder(_cache!));
             setLoading(false);
             return;
         }
@@ -70,7 +75,7 @@ export function useCategories() {
                     context: { module: 'useCategories' },
                 });
             } else {
-                const cats = data ?? [];
+                const cats = sortCategoriesByBusinessOrder(data ?? []);
                 _cache = cats;
                 _cacheTs = Date.now();
                 setCategories(cats);
@@ -119,9 +124,7 @@ export function useCategories() {
                 return null;
             }
 
-            const updated = [...(categories), result.data as Category].sort((a, b) =>
-                a.nombre.localeCompare(b.nombre),
-            );
+            const updated = sortCategoriesByBusinessOrder([...(categories), result.data as Category]);
             _cache = updated;
             _cacheTs = Date.now();
             setCategories(updated);
@@ -154,9 +157,9 @@ export function useCategories() {
                 });
                 return false;
             }
-            const updated = categories
-                .map((c) => (c.id === id ? { ...c, ...payload } : c))
-                .sort((a, b) => a.nombre.localeCompare(b.nombre));
+            const updated = sortCategoriesByBusinessOrder(
+                categories.map((c) => (c.id === id ? { ...c, ...payload } : c)),
+            );
             _cache = updated;
             _cacheTs = Date.now();
             setCategories(updated);

@@ -105,16 +105,18 @@ function buildQuickSpecs(product?: Product) {
 function splitMedida(medida?: string) {
     const raw = (medida ?? '').trim();
     if (!raw) return { value: '', unit: '' };
-    
-    // Regex mejorado: soporta números con coma o punto, incluyendo múltiples decimales
-    // Ejemplo: "9,5", "9.5", "9,6 mm", "9,6mm", "9.6 mm x ml"
-    const match = raw.match(/^([\d,\.]+)\s*(.*)$/);
-    if (!match || !match[1]) return { value: raw, unit: '' };
-    
-    // Normalizar: reemplazar coma con punto y limpiar espacios
-    const normalizedValue = (match[1] ?? '').replace(',', '.').trim();
+
+    // Soporta entradas como: "9,5", "9.5", "9,6 mm", "9.6 mm x ml"
+    const match = raw.match(/^(\d+(?:[\.,]\d+)*)\s*(.*)$/);
+    if (!match || !match[1]) {
+        // Si no hay número al inicio, tratamos todo como unidad para no contaminar el campo numérico.
+        return { value: '', unit: raw.toLowerCase() };
+    }
+
+    // Normalizar: reemplazar comas por punto
+    const normalizedValue = (match[1] ?? '').replace(/,/g, '.').trim();
     const unit = (match[2] ?? '').trim().toLowerCase();
-    
+
     return {
         value: normalizedValue,
         unit: unit,
@@ -971,20 +973,32 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
                                                             value={medidaParts.value}
                                                             onChange={(e) => {
                                                                 const inputValue = e.target.value;
-                                                                // Permitir comas y puntos, normalizar a punto
-                                                                const normalizedInput = inputValue.replace(',', '.');
-                                                                
-                                                                // Parsear si el usuario escribió algo como "9.5 mm" en este campo
+                                                                const normalizedInput = inputValue.replace(/,/g, '.').trimStart();
+
+                                                                // Si el usuario escribe "9.5 mm" o "9.5 mm x ml", parseamos automáticamente.
                                                                 const parsed = splitMedida(normalizedInput);
-                                                                
-                                                                if (parsed.unit && MEDIDA_UNITS.includes(parsed.unit)) {
-                                                                  // Usuario escribió algo como "9.5 mm", parsear automáticamente
-                                                                  updateVariantMedidaUnitMode(activeVariant.id, parsed.unit);
-                                                                  updateVariantMedidaParts(safeActiveVariantIndex, parsed.value, parsed.unit);
-                                                                } else {
-                                                                  // Solo actualizar el número, mantener la unidad actual
-                                                                  updateVariantMedidaParts(safeActiveVariantIndex, normalizedInput, medidaUnitSelect === CUSTOM_OPTION ? medidaUnitCustom : medidaUnitSelect);
+                                                                if (parsed.unit) {
+                                                                    const parsedUnit = parsed.unit;
+                                                                    const isKnownUnit = MEDIDA_UNITS.includes(parsedUnit);
+
+                                                                    if (isKnownUnit) {
+                                                                        updateVariantMedidaUnitMode(activeVariant.id, parsedUnit);
+                                                                    } else {
+                                                                        updateVariantMedidaUnitMode(activeVariant.id, CUSTOM_OPTION);
+                                                                        setMedidaUnitCustomByVariant((prev) => ({ ...prev, [activeVariant.id]: parsedUnit }));
+                                                                    }
+
+                                                                    updateVariantMedidaParts(safeActiveVariantIndex, parsed.value, parsedUnit);
+                                                                    return;
                                                                 }
+
+                                                                // Campo numérico estricto para evitar mezclar texto y unidad.
+                                                                const numericValue = normalizedInput.replace(/[^\d.]/g, '');
+                                                                updateVariantMedidaParts(
+                                                                    safeActiveVariantIndex,
+                                                                    numericValue,
+                                                                    medidaUnitSelect === CUSTOM_OPTION ? medidaUnitCustom : medidaUnitSelect,
+                                                                );
                                                             }}
                                                             placeholder="Número (ej: 9,5 o 9.5 mm)"
                                                             className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
@@ -1218,7 +1232,7 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
                                             <img
                                                 src={imagePreviews[idx] || DEFAULT_IMAGE}
                                                 alt={`Miniatura ${idx + 1}`}
-                                                className="w-full h-full object-cover"
+                                                className="w-full h-full object-contain bg-slate-100"
                                                 loading="lazy"
                                             />
                                         ) : (
@@ -1240,7 +1254,7 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
                                 <img
                                     src={imagePreviews[activeImageSlot] || DEFAULT_IMAGE}
                                     alt={`Imagen ${activeImageSlot + 1}`}
-                                    className="absolute inset-0 w-full h-full object-cover"
+                                    className="absolute inset-0 w-full h-full object-contain bg-slate-100"
                                     style={{
                                         transform: `translate(${((imgSlot?.crop.offsetX ?? 0) * 18).toFixed(2)}%, ${((imgSlot?.crop.offsetY ?? 0) * 18).toFixed(2)}%) scale(${imgSlot?.crop.zoom ?? 1})`,
                                         transformOrigin: 'center',
@@ -1469,7 +1483,7 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
                         <img
                             src={imagePreviews[activePreviewImageIdx] || previewImages[0]}
                             alt="Preview"
-                            className="absolute inset-0 w-full h-full object-cover"
+                            className="absolute inset-0 w-full h-full object-contain bg-slate-100"
                             style={{
                                 transform: `translate(${((form.images[activePreviewImageIdx]?.crop.offsetX ?? 0) * 18).toFixed(2)}%, ${((form.images[activePreviewImageIdx]?.crop.offsetY ?? 0) * 18).toFixed(2)}%) scale(${form.images[activePreviewImageIdx]?.crop.zoom ?? 1})`,
                                 transformOrigin: 'center',
@@ -1501,7 +1515,7 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
                                 onClick={() => setActivePreviewImageIdx(idx)}
                                 className={`aspect-square rounded-xl overflow-hidden border-2 ${idx === activePreviewImageIdx ? 'border-orange-500' : 'border-slate-200'}`}
                             >
-                                <img src={img} alt={`Miniatura ${idx + 1}`} className="w-full h-full object-cover" loading="lazy" />
+                                <img src={img} alt={`Miniatura ${idx + 1}`} className="w-full h-full object-contain bg-slate-100" loading="lazy" />
                             </button>
                         ))}
                     </div>

@@ -98,9 +98,32 @@ const CACHE_TTL = 60_000; // 1 minute
 
 const STORAGE_BUCKET = 'catalogo-productos';
 const STORAGE_PREFIX = 'productos';
+const PUBLIC_STORAGE_MARKER = `/storage/v1/object/public/${STORAGE_BUCKET}/`;
 
 function isCacheValid(): boolean {
     return _cache !== null && Date.now() - _cacheTs < CACHE_TTL;
+}
+
+function extractStoragePath(pathOrUrl: string): string | null {
+    const raw = String(pathOrUrl ?? '').trim();
+    if (!raw) return null;
+
+    if (!/^https?:\/\//i.test(raw)) {
+        return raw.replace(/^\/+/, '');
+    }
+
+    const markerIndex = raw.indexOf(PUBLIC_STORAGE_MARKER);
+    if (markerIndex === -1) return null;
+
+    const afterMarker = raw.slice(markerIndex + PUBLIC_STORAGE_MARKER.length);
+    const cleanPath = afterMarker.split('?')[0]?.trim();
+    if (!cleanPath) return null;
+
+    try {
+        return decodeURIComponent(cleanPath);
+    } catch {
+        return cleanPath;
+    }
 }
 
 function mapRowToProduct(row: any, resolveImageUrl: (pathOrUrl: string) => string): Product {
@@ -281,7 +304,7 @@ export function ProductProvider({ children }: { children: ReactNode }) {
     }, [fetchProducts]);
 
     const toWebpBlob = useCallback(async (blob: Blob, crop?: ImageCrop): Promise<Blob> => {
-        // Convert to WebP and (optionally) apply a crop/zoom to a fixed aspect ratio.
+        // Convert to WebP and keep full image visible by default (no implicit crop).
         // If conversion fails, upload original blob.
         try {
             const bitmap: ImageBitmap = await createImageBitmap(blob);
@@ -300,9 +323,9 @@ export function ProductProvider({ children }: { children: ReactNode }) {
             const offsetX = Math.max(-1, Math.min(1, crop?.offsetX ?? 0));
             const offsetY = Math.max(-1, Math.min(1, crop?.offsetY ?? 0));
 
-            // Cover scale, then apply extra zoom.
-            const coverScale = Math.max(targetW / bitmap.width, targetH / bitmap.height);
-            const scale = coverScale * zoom;
+            // Contain scale, then apply optional zoom.
+            const containScale = Math.min(targetW / bitmap.width, targetH / bitmap.height);
+            const scale = containScale * zoom;
             const drawW = bitmap.width * scale;
             const drawH = bitmap.height * scale;
 
@@ -316,6 +339,8 @@ export function ProductProvider({ children }: { children: ReactNode }) {
 
             ctx.imageSmoothingEnabled = true;
             ctx.imageSmoothingQuality = 'high';
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, targetW, targetH);
             ctx.drawImage(bitmap, dx, dy, drawW, drawH);
             bitmap.close();
 
@@ -334,6 +359,18 @@ export function ProductProvider({ children }: { children: ReactNode }) {
             try {
                 const inputs = (imageInputs ?? []).filter(Boolean).slice(0, 4);
 
+                const normalizedInputs = inputs.map((input) => {
+                    const source = (typeof input === 'object' && input && 'source' in input)
+                        ? (input as { source: string | File; crop?: ImageCrop }).source
+                        : input;
+                    const crop = (typeof input === 'object' && input && 'source' in input)
+                        ? (input as { source: string | File; crop?: ImageCrop }).crop
+                        : undefined;
+
+                    const sourcePath = typeof source === 'string' ? extractStoragePath(source) : null;
+                    return { source, crop, sourcePath };
+                });
+
                 // Get existing image rows so we can delete objects.
                 const { data: existing, error: existingErr } = await sb.current
                     .from('producto_imagenes')
@@ -347,6 +384,13 @@ export function ProductProvider({ children }: { children: ReactNode }) {
                 const existingPaths = (existing ?? [])
                     .map((r: any) => String(r.path_storage ?? ''))
                     .filter((p) => p && !/^https?:\/\//i.test(p));
+                const existingPathSet = new Set(existingPaths);
+
+                const pathsToKeep = new Set(
+                    normalizedInputs
+                        .map((item) => item.sourcePath)
+                        .filter((path): path is string => !!path && existingPathSet.has(path)),
+                );
 
                 // Delete DB rows first (keeps ordering clean)
                 const { error: delRowsErr } = await sb.current
@@ -359,36 +403,39 @@ export function ProductProvider({ children }: { children: ReactNode }) {
                 }
 
                 // Delete storage objects (best-effort)
-                if (existingPaths.length > 0) {
+                const storagePathsToDelete = existingPaths.filter((path) => !pathsToKeep.has(path));
+                if (storagePathsToDelete.length > 0) {
                     const { error: removeErr } = await sb.current.storage
                         .from(STORAGE_BUCKET)
-                        .remove(existingPaths);
+                        .remove(storagePathsToDelete);
                     if (removeErr) {
                         console.warn('[Products] Storage remove error:', removeErr.message);
                     }
                 }
 
-                if (inputs.length === 0) {
+                if (normalizedInputs.length === 0) {
                     triggerRefetch();
                     return { success: true };
                 }
 
                 const rowsToInsert: Array<{ producto_id: string; path_storage: string; orden: number }> = [];
+                const uploadBatchToken = Date.now();
 
-                for (let i = 0; i < inputs.length; i += 1) {
+                for (let i = 0; i < normalizedInputs.length; i += 1) {
                     const order = i + 1;
-                    const input = inputs[i];
+                    const { source, crop, sourcePath } = normalizedInputs[i];
 
-                    const source = (typeof input === 'object' && input && 'source' in input)
-                        ? (input as { source: string | File; crop?: ImageCrop }).source
-                        : input;
-                    const crop = (typeof input === 'object' && input && 'source' in input)
-                        ? (input as { source: string | File; crop?: ImageCrop }).crop
-                        : undefined;
+                    if (typeof source === 'string' && sourcePath && existingPathSet.has(sourcePath)) {
+                        rowsToInsert.push({ producto_id: productId, path_storage: sourcePath, orden: order });
+                        continue;
+                    }
 
                     let sourceBlob: Blob;
                     if (typeof source === 'string') {
-                        const res = await fetch(source);
+                        const fetchSource = sourcePath
+                            ? sb.current.storage.from(STORAGE_BUCKET).getPublicUrl(sourcePath).data.publicUrl
+                            : source;
+                        const res = await fetch(fetchSource);
                         if (!res.ok) {
                             return { success: false, error: `No se pudo descargar la imagen ${order} (URL).` };
                         }
@@ -398,7 +445,8 @@ export function ProductProvider({ children }: { children: ReactNode }) {
                     }
 
                     const webpBlob = await toWebpBlob(sourceBlob, crop);
-                    const path = `${STORAGE_PREFIX}/${productId}/${order}.webp`;
+                    const randomToken = Math.random().toString(36).slice(2, 8);
+                    const path = `${STORAGE_PREFIX}/${productId}/${order}-${uploadBatchToken}-${randomToken}.webp`;
 
                     const { error: upErr } = await sb.current.storage
                         .from(STORAGE_BUCKET)
@@ -443,12 +491,15 @@ export function ProductProvider({ children }: { children: ReactNode }) {
     const setProductVariantsCore = useCallback(
         async (productId: string, variants: Product['variants'] = []): Promise<ProductResult> => {
             try {
-                // Filtrar solo variantes con datos válidos
-                const normalized = (variants ?? [])
-                    .filter((variant) => variant && (variant?.sku?.trim() || variant?.price || variant?.stock))
-                    .map((variant) => {
-                        // Auto-generar SKU si falta
-                        const finalSku = variant.sku?.trim() || `SKU-${productId}-${Date.now()}`;
+                const requestedVariants = (variants ?? []).filter((variant) => !!variant);
+                const skuCounter = new Map<string, number>();
+
+                const normalized = requestedVariants.map((variant, index) => {
+                        const baseSku = variant.sku?.trim() || `SKU-${productId}-${Date.now()}-${index + 1}`;
+                        const repeatedCount = skuCounter.get(baseSku) ?? 0;
+                        skuCounter.set(baseSku, repeatedCount + 1);
+                        const finalSku = repeatedCount === 0 ? baseSku : `${baseSku}-${repeatedCount + 1}`;
+
                         return {
                             producto_id: productId,
                             sku: finalSku,
@@ -473,6 +524,36 @@ export function ProductProvider({ children }: { children: ReactNode }) {
 
                 console.log(`[setProductVariantsCore] Guardando ${normalized.length} variantes para producto ${productId}`);
 
+                const { data: previousRows, error: previousErr } = await sb.current
+                    .from('producto_variantes')
+                    .select('sku, precio, moneda, estado_stock, medida, presentacion, unidad_venta, alto_mm, ancho_mm, largo_mm, peso_kg, material, color, contenido, especificacion_variada, quick_specs, activo')
+                    .eq('producto_id', productId);
+
+                if (previousErr) {
+                    console.warn('[setProductVariantsCore] Error leyendo variantes previas:', previousErr.message);
+                }
+
+                const previousNormalized = (previousRows ?? []).map((row: any) => ({
+                    producto_id: productId,
+                    sku: row.sku,
+                    precio: row.precio,
+                    moneda: row.moneda,
+                    estado_stock: row.estado_stock,
+                    medida: row.medida,
+                    presentacion: row.presentacion,
+                    unidad_venta: row.unidad_venta,
+                    alto_mm: row.alto_mm,
+                    ancho_mm: row.ancho_mm,
+                    largo_mm: row.largo_mm,
+                    peso_kg: row.peso_kg,
+                    material: row.material,
+                    color: row.color,
+                    contenido: row.contenido,
+                    especificacion_variada: row.especificacion_variada,
+                    quick_specs: row.quick_specs,
+                    activo: row.activo,
+                }));
+
                 const { error: deleteErr } = await sb.current
                     .from('producto_variantes')
                     .delete()
@@ -489,6 +570,16 @@ export function ProductProvider({ children }: { children: ReactNode }) {
                         .insert(normalized);
                     if (insertErr) {
                         console.error('[setProductVariantsCore] Error insertando variantes:', insertErr.message);
+
+                        if (previousNormalized.length > 0) {
+                            const { error: rollbackErr } = await sb.current
+                                .from('producto_variantes')
+                                .insert(previousNormalized);
+                            if (rollbackErr) {
+                                console.error('[setProductVariantsCore] Error restaurando variantes previas:', rollbackErr.message);
+                            }
+                        }
+
                         return { success: false, error: insertErr.message };
                     }
                 }
