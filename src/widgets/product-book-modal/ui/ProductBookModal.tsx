@@ -124,16 +124,14 @@ export default function ProductBookModal({ product, isOpen, onClose }: ProductBo
 
     return (
         <div
-            className={`fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/55 transition-opacity duration-200 ${
-                isClosing ? 'opacity-0' : 'opacity-100'
-            }`}
+            className={`fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/55 transition-opacity duration-200 ${isClosing ? 'opacity-0' : 'opacity-100'
+                }`}
             onClick={handleClose}
         >
             {/* Modal Libro */}
             <div
-                className={`relative bg-white rounded-xl sm:rounded-2xl shadow-xl max-w-7xl w-full max-h-[96vh] overflow-hidden transform transition-all duration-200 ${
-                    isClosing ? 'scale-95 opacity-0' : 'scale-100 opacity-100'
-                }`}
+                className={`relative bg-white rounded-xl sm:rounded-2xl shadow-xl max-w-7xl w-full max-h-[96vh] overflow-hidden transform transition-all duration-200 ${isClosing ? 'scale-95 opacity-0' : 'scale-100 opacity-100'
+                    }`}
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Botón cerrar */}
@@ -237,11 +235,10 @@ export default function ProductBookModal({ product, isOpen, onClose }: ProductBo
                                         <button
                                             key={idx}
                                             onClick={() => setCurrentImageIndex(idx)}
-                                            className={`flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition-all ${
-                                                idx === currentImageIndex
+                                            className={`flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition-all ${idx === currentImageIndex
                                                     ? 'border-orange-500 shadow-md'
                                                     : 'border-gray-200 hover:border-orange-300'
-                                            }`}
+                                                }`}
                                         >
                                             <img
                                                 src={img}
@@ -379,9 +376,8 @@ export default function ProductBookModal({ product, isOpen, onClose }: ProductBo
                                 <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wide mb-2">
                                     Descripción
                                 </h3>
-                                <p className="text-sm text-slate-700 leading-relaxed">
-                                    {productData.description.substring(0, 300)}
-                                    {productData.description.length > 300 ? '...' : ''}
+                                <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">
+                                    {productData.description}
                                 </p>
                             </div>
                         )}
@@ -417,9 +413,8 @@ export default function ProductBookModal({ product, isOpen, onClose }: ProductBo
                                 {Object.entries(productData.fullSpecs ?? productData.specs).map(([key, val], idx) => (
                                     <div
                                         key={key}
-                                        className={`flex py-3 px-5 ${
-                                            idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'
-                                        } hover:bg-orange-50 transition-colors`}
+                                        className={`flex py-3 px-5 ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'
+                                            } hover:bg-orange-50 transition-colors`}
                                     >
                                         <span className="w-40 text-sm font-semibold text-slate-600 flex items-center gap-2">
                                             <span className="w-1.5 h-1.5 bg-orange-500 rounded-full flex-shrink-0" />

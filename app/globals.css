@@ -53,3 +53,14 @@ body {
 .smooth-scroll {
   scroll-behavior: smooth;
 }
+
+/* Mobile drawer slide-in */
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+  }
+
+  to {
+    transform: translateX(0);
+  }
+}

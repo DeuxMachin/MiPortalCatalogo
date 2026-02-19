@@ -495,32 +495,32 @@ export function ProductProvider({ children }: { children: ReactNode }) {
                 const skuCounter = new Map<string, number>();
 
                 const normalized = requestedVariants.map((variant, index) => {
-                        const baseSku = variant.sku?.trim() || `SKU-${productId}-${Date.now()}-${index + 1}`;
-                        const repeatedCount = skuCounter.get(baseSku) ?? 0;
-                        skuCounter.set(baseSku, repeatedCount + 1);
-                        const finalSku = repeatedCount === 0 ? baseSku : `${baseSku}-${repeatedCount + 1}`;
+                    const baseSku = variant.sku?.trim() || `SKU-${productId}-${Date.now()}-${index + 1}`;
+                    const repeatedCount = skuCounter.get(baseSku) ?? 0;
+                    skuCounter.set(baseSku, repeatedCount + 1);
+                    const finalSku = repeatedCount === 0 ? baseSku : `${baseSku}-${repeatedCount + 1}`;
 
-                        return {
-                            producto_id: productId,
-                            sku: finalSku,
-                            precio: Number(variant.price ?? 0),
-                            moneda: variant.unit ?? 'CLP',
-                            estado_stock: variant.stock ?? 'EN STOCK',
-                            medida: variant.medida ?? null,
-                            presentacion: variant.presentacion ?? null,
-                            unidad_venta: variant.unidadVenta ?? null,
-                            alto_mm: variant.altoMm ?? null,
-                            ancho_mm: variant.anchoMm ?? null,
-                            largo_mm: variant.largoMm ?? null,
-                            peso_kg: variant.pesoKg ?? null,
-                            material: variant.material ?? null,
-                            color: variant.color ?? null,
-                            contenido: variant.contenido ?? null,
-                            especificacion_variada: { specs: variant.specs ?? {} },
-                            quick_specs: variant.quickSpecs ?? [],
-                            activo: variant.isActive ?? true,
-                        };
-                    });
+                    return {
+                        producto_id: productId,
+                        sku: finalSku,
+                        precio: Number(variant.price ?? 0),
+                        moneda: variant.unit ?? 'CLP',
+                        estado_stock: variant.stock ?? 'EN STOCK',
+                        medida: variant.medida ?? null,
+                        presentacion: variant.presentacion ?? null,
+                        unidad_venta: variant.unidadVenta ?? null,
+                        alto_mm: variant.altoMm ?? null,
+                        ancho_mm: variant.anchoMm ?? null,
+                        largo_mm: variant.largoMm ?? null,
+                        peso_kg: variant.pesoKg ?? null,
+                        material: variant.material ?? null,
+                        color: variant.color ?? null,
+                        contenido: variant.contenido ?? null,
+                        especificacion_variada: { specs: variant.specs ?? {} },
+                        quick_specs: variant.quickSpecs ?? [],
+                        activo: variant.isActive ?? true,
+                    };
+                });
 
                 console.log(`[setProductVariantsCore] Guardando ${normalized.length} variantes para producto ${productId}`);
 
@@ -929,6 +929,7 @@ export function ProductProvider({ children }: { children: ReactNode }) {
                     quickSpecs: data.quickSpecs,
                     notaTecnica: data.notaTecnica,
                     recursos: data.recursos,
+                    variants: data.variants,
                 },
                 (imageInputs ?? data.images ?? []) as ProductImageInput[],
             );
@@ -984,8 +985,8 @@ export function ProductProvider({ children }: { children: ReactNode }) {
 
             // Filtrar productos de la misma categoría que estén publicados, excluyendo el producto actual
             const related = state.products.filter(
-                (p) => p.categoryId === currentProduct.categoryId 
-                    && p.id !== productId 
+                (p) => p.categoryId === currentProduct.categoryId
+                    && p.id !== productId
                     && p.isPublished
             );
 

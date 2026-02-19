@@ -592,6 +592,15 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
             return;
         }
 
+        const overLimitVariant = form.variants.find((v) => {
+            const wc = v.description.trim() ? v.description.trim().split(/\s+/).length : 0;
+            return wc > 500;
+        });
+        if (overLimitVariant) {
+            setSaveError('La descripción de uno o más formatos excede las 500 palabras. Reduce el texto antes de guardar.');
+            return;
+        }
+
         setSaving(true);
         const specsObj: Record<string, string> = {};
         form.specs.forEach((s) => {
@@ -723,11 +732,10 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
                                 key={key}
                                 type="button"
                                 onClick={() => setFormTab(key)}
-                                className={`relative flex items-center gap-2 px-4 py-3 rounded-t-xl text-sm font-semibold whitespace-nowrap transition-all border-b-2 ${
-                                    isActive
-                                        ? 'text-orange-600 border-orange-500 bg-orange-50/50'
-                                        : 'text-slate-400 border-transparent hover:text-slate-600 hover:bg-slate-50'
-                                }`}
+                                className={`relative flex items-center gap-2 px-4 py-3 rounded-t-xl text-sm font-semibold whitespace-nowrap transition-all border-b-2 ${isActive
+                                    ? 'text-orange-600 border-orange-500 bg-orange-50/50'
+                                    : 'text-slate-400 border-transparent hover:text-slate-600 hover:bg-slate-50'
+                                    }`}
                             >
                                 <Icon className="w-4 h-4" />
                                 {label}
@@ -841,333 +849,350 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
 
                                         return (
                                             <>
-                                    <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-slate-50 px-3 py-2">
-                                        <div className="flex items-center gap-1.5">
-                                            <button
-                                                type="button"
-                                                onClick={() => setActiveVariantIndex((prev) => (prev <= 0 ? form.variants.length - 1 : prev - 1))}
-                                                className="p-1.5 rounded-lg text-slate-600 hover:bg-white transition-colors"
-                                            >
-                                                <ArrowLeft className="w-4 h-4" />
-                                            </button>
-                                            <span className="text-xs font-semibold text-slate-600">
-                                                Formato {safeActiveVariantIndex + 1} de {form.variants.length}
-                                            </span>
-                                            <button
-                                                type="button"
-                                                onClick={() => setActiveVariantIndex((prev) => (prev >= form.variants.length - 1 ? 0 : prev + 1))}
-                                                className="p-1.5 rounded-lg text-slate-600 hover:bg-white transition-colors"
-                                            >
-                                                <ArrowRight className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                        <div className="flex items-center gap-1.5">
-                                            {!activeVariant.isActive && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setPrimaryVariant(safeActiveVariantIndex)}
-                                                    className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-orange-100 text-orange-700 hover:bg-orange-200 transition-colors"
-                                                >
-                                                    Hacer principal
-                                                </button>
-                                            )}
-                                            <button
-                                                type="button"
-                                                onClick={() => removeVariant(safeActiveVariantIndex)}
-                                                disabled={form.variants.length <= 1}
-                                                className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 transition-colors disabled:opacity-30"
-                                            >
-                                                <Trash2 className="w-3.5 h-3.5" />
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    <div className={`rounded-2xl border-2 p-4 sm:p-5 ${activeVariant.isActive ? 'border-orange-300 bg-orange-50/40' : 'border-gray-100 bg-gray-50/50'}`}>
-                                        <div className="mb-3">
-                                            <span className={`text-xs font-bold uppercase tracking-wide ${activeVariant.isActive ? 'text-orange-600' : 'text-slate-500'}`}>
-                                                {activeVariant.isActive ? '★ Formato principal' : `Formato ${safeActiveVariantIndex + 1}`}
-                                            </span>
-                                        </div>
-
-                                        <div className="space-y-4">
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                                                <input
-                                                    type="text"
-                                                    value={activeVariant.sku}
-                                                    onChange={(e) => updateVariantField(safeActiveVariantIndex, 'sku', e.target.value)}
-                                                    placeholder="Ej: SEP-CONO-20-BLA"
-                                                    className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                                                />
-                                                <div className="relative">
-                                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-semibold">$</span>
-                                                    <input
-                                                        type="number"
-                                                        value={activeVariant.price}
-                                                        onChange={(e) => updateVariantField(safeActiveVariantIndex, 'price', e.target.value)}
-                                                        placeholder="Ej: 1290"
-                                                        className="w-full pl-7 pr-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                                                    />
-                                                </div>
-                                                <select
-                                                    value={activeVariant.stock}
-                                                    onChange={(e) => updateVariantField(safeActiveVariantIndex, 'stock', e.target.value)}
-                                                    className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white"
-                                                >
-                                                    {STOCK_OPTIONS.map((opt) => (
-                                                        <option key={opt} value={opt}>{opt}</option>
-                                                    ))}
-                                                </select>
-                                            </div>
-
-                                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                                                <div className="space-y-2">
-                                                    <label className="block text-xs font-semibold text-slate-500">Formato</label>
-                                                    <select
-                                                        value={presentacionType || ''}
-                                                        onChange={(e) => {
-                                                            const nextType = e.target.value;
-                                                            updateVariantFormatoMode(activeVariant.id, nextType);
-                                                            if (nextType === CUSTOM_OPTION) {
-                                                                setFormatoCustomByVariant((prev) => ({ ...prev, [activeVariant.id]: presentacionCustom }));
-                                                                updateVariantPresentacionParts(safeActiveVariantIndex, CUSTOM_OPTION, '', presentacionCustom);
-                                                            } else {
-                                                                updateVariantPresentacionParts(safeActiveVariantIndex, nextType, presentacionDetail, '');
-                                                            }
-                                                        }}
-                                                        className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white"
-                                                    >
-                                                        <option value="">Seleccionar formato...</option>
-                                                        {FORMATO_OPTIONS.map((option) => (
-                                                            <option key={option} value={option}>{option}</option>
-                                                        ))}
-                                                        <option value={CUSTOM_OPTION}>Agregar formato personalizado</option>
-                                                    </select>
-                                                    {presentacionType === CUSTOM_OPTION ? (
-                                                        <input
-                                                            type="text"
-                                                            value={presentacionCustom}
-                                                            onChange={(e) => {
-                                                                const customValue = e.target.value;
-                                                                setFormatoCustomByVariant((prev) => ({ ...prev, [activeVariant.id]: customValue }));
-                                                                updateVariantPresentacionParts(safeActiveVariantIndex, CUSTOM_OPTION, '', customValue);
-                                                            }}
-                                                            placeholder="Formato personalizado (ej: Cubeta)"
-                                                            className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                                                        />
-                                                    ) : (
-                                                        <input
-                                                            type="text"
-                                                            value={presentacionDetail}
-                                                            onChange={(e) => updateVariantPresentacionParts(safeActiveVariantIndex, presentacionType, e.target.value, '')}
-                                                            placeholder="Detalle formato (ej: 100 und / 25 kg)"
-                                                            className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                                                        />
-                                                    )}
-                                                </div>
-
-                                                <div className="space-y-2">
-                                                    <label className="block text-xs font-semibold text-slate-500">Medida</label>
-                                                    <div className="grid grid-cols-2 gap-2">
-                                                        <input
-                                                            type="text"
-                                                            value={medidaParts.value}
-                                                            onChange={(e) => {
-                                                                const inputValue = e.target.value;
-                                                                const normalizedInput = inputValue.replace(/,/g, '.').trimStart();
-
-                                                                // Si el usuario escribe "9.5 mm" o "9.5 mm x ml", parseamos automáticamente.
-                                                                const parsed = splitMedida(normalizedInput);
-                                                                if (parsed.unit) {
-                                                                    const parsedUnit = parsed.unit;
-                                                                    const isKnownUnit = MEDIDA_UNITS.includes(parsedUnit);
-
-                                                                    if (isKnownUnit) {
-                                                                        updateVariantMedidaUnitMode(activeVariant.id, parsedUnit);
-                                                                    } else {
-                                                                        updateVariantMedidaUnitMode(activeVariant.id, CUSTOM_OPTION);
-                                                                        setMedidaUnitCustomByVariant((prev) => ({ ...prev, [activeVariant.id]: parsedUnit }));
-                                                                    }
-
-                                                                    updateVariantMedidaParts(safeActiveVariantIndex, parsed.value, parsedUnit);
-                                                                    return;
-                                                                }
-
-                                                                // Campo numérico estricto para evitar mezclar texto y unidad.
-                                                                const numericValue = normalizedInput.replace(/[^\d.]/g, '');
-                                                                updateVariantMedidaParts(
-                                                                    safeActiveVariantIndex,
-                                                                    numericValue,
-                                                                    medidaUnitSelect === CUSTOM_OPTION ? medidaUnitCustom : medidaUnitSelect,
-                                                                );
-                                                            }}
-                                                            placeholder="Número (ej: 9,5 o 9.5 mm)"
-                                                            className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                                                        />
-                                                        <select
-                                                            value={medidaUnitSelect}
-                                                            onChange={(e) => {
-                                                                const nextUnitMode = e.target.value;
-                                                                updateVariantMedidaUnitMode(activeVariant.id, nextUnitMode);
-                                                                if (nextUnitMode === CUSTOM_OPTION) {
-                                                                    updateVariantMedidaParts(safeActiveVariantIndex, medidaParts.value, medidaUnitCustom);
-                                                                } else {
-                                                                    updateVariantMedidaParts(safeActiveVariantIndex, medidaParts.value, nextUnitMode);
-                                                                }
-                                                            }}
-                                                            className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white"
+                                                <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-slate-50 px-3 py-2">
+                                                    <div className="flex items-center gap-1.5">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setActiveVariantIndex((prev) => (prev <= 0 ? form.variants.length - 1 : prev - 1))}
+                                                            className="p-1.5 rounded-lg text-slate-600 hover:bg-white transition-colors"
                                                         >
-                                                            <option value="">Unidad...</option>
-                                                            {MEDIDA_UNITS.map((unit) => (
-                                                                <option key={unit} value={unit}>{unit}</option>
-                                                            ))}
-                                                            <option value={CUSTOM_OPTION}>Agregar unidad personalizada</option>
-                                                        </select>
+                                                            <ArrowLeft className="w-4 h-4" />
+                                                        </button>
+                                                        <span className="text-xs font-semibold text-slate-600">
+                                                            Formato {safeActiveVariantIndex + 1} de {form.variants.length}
+                                                        </span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setActiveVariantIndex((prev) => (prev >= form.variants.length - 1 ? 0 : prev + 1))}
+                                                            className="p-1.5 rounded-lg text-slate-600 hover:bg-white transition-colors"
+                                                        >
+                                                            <ArrowRight className="w-4 h-4" />
+                                                        </button>
                                                     </div>
-                                                    {medidaUnitSelect === CUSTOM_OPTION && (
-                                                        <input
-                                                            type="text"
-                                                            value={medidaUnitCustom}
-                                                            onChange={(e) => {
-                                                                const customUnit = e.target.value;
-                                                                setMedidaUnitCustomByVariant((prev) => ({ ...prev, [activeVariant.id]: customUnit }));
-                                                                updateVariantMedidaParts(safeActiveVariantIndex, medidaParts.value, customUnit);
-                                                            }}
-                                                            placeholder="Unidad personalizada (ej: mm x ml)"
-                                                            className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                                    <div className="flex items-center gap-1.5">
+                                                        {!activeVariant.isActive && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setPrimaryVariant(safeActiveVariantIndex)}
+                                                                className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-orange-100 text-orange-700 hover:bg-orange-200 transition-colors"
+                                                            >
+                                                                Hacer principal
+                                                            </button>
+                                                        )}
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => removeVariant(safeActiveVariantIndex)}
+                                                            disabled={form.variants.length <= 1}
+                                                            className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 transition-colors disabled:opacity-30"
+                                                        >
+                                                            <Trash2 className="w-3.5 h-3.5" />
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                <div className={`rounded-2xl border-2 p-4 sm:p-5 ${activeVariant.isActive ? 'border-orange-300 bg-orange-50/40' : 'border-gray-100 bg-gray-50/50'}`}>
+                                                    <div className="mb-3">
+                                                        <span className={`text-xs font-bold uppercase tracking-wide ${activeVariant.isActive ? 'text-orange-600' : 'text-slate-500'}`}>
+                                                            {activeVariant.isActive ? '★ Formato principal' : `Formato ${safeActiveVariantIndex + 1}`}
+                                                        </span>
+                                                    </div>
+
+                                                    <div className="space-y-4">
+                                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                                                            <input
+                                                                type="text"
+                                                                value={activeVariant.sku}
+                                                                onChange={(e) => updateVariantField(safeActiveVariantIndex, 'sku', e.target.value)}
+                                                                placeholder="Ej: SEP-CONO-20-BLA"
+                                                                className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                                            />
+                                                            <div className="relative">
+                                                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-semibold">$</span>
+                                                                <input
+                                                                    type="number"
+                                                                    value={activeVariant.price}
+                                                                    onChange={(e) => updateVariantField(safeActiveVariantIndex, 'price', e.target.value)}
+                                                                    placeholder="Ej: 1290"
+                                                                    className="w-full pl-7 pr-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                                                />
+                                                            </div>
+                                                            <select
+                                                                value={activeVariant.stock}
+                                                                onChange={(e) => updateVariantField(safeActiveVariantIndex, 'stock', e.target.value)}
+                                                                className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white"
+                                                            >
+                                                                {STOCK_OPTIONS.map((opt) => (
+                                                                    <option key={opt} value={opt}>{opt}</option>
+                                                                ))}
+                                                            </select>
+                                                        </div>
+
+                                                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                                                            <div className="space-y-2">
+                                                                <label className="block text-xs font-semibold text-slate-500">Formato</label>
+                                                                <select
+                                                                    value={presentacionType || ''}
+                                                                    onChange={(e) => {
+                                                                        const nextType = e.target.value;
+                                                                        updateVariantFormatoMode(activeVariant.id, nextType);
+                                                                        if (nextType === CUSTOM_OPTION) {
+                                                                            setFormatoCustomByVariant((prev) => ({ ...prev, [activeVariant.id]: presentacionCustom }));
+                                                                            updateVariantPresentacionParts(safeActiveVariantIndex, CUSTOM_OPTION, '', presentacionCustom);
+                                                                        } else {
+                                                                            updateVariantPresentacionParts(safeActiveVariantIndex, nextType, presentacionDetail, '');
+                                                                        }
+                                                                    }}
+                                                                    className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white"
+                                                                >
+                                                                    <option value="">Seleccionar formato...</option>
+                                                                    {FORMATO_OPTIONS.map((option) => (
+                                                                        <option key={option} value={option}>{option}</option>
+                                                                    ))}
+                                                                    <option value={CUSTOM_OPTION}>Agregar formato personalizado</option>
+                                                                </select>
+                                                                {presentacionType === CUSTOM_OPTION ? (
+                                                                    <input
+                                                                        type="text"
+                                                                        value={presentacionCustom}
+                                                                        onChange={(e) => {
+                                                                            const customValue = e.target.value;
+                                                                            setFormatoCustomByVariant((prev) => ({ ...prev, [activeVariant.id]: customValue }));
+                                                                            updateVariantPresentacionParts(safeActiveVariantIndex, CUSTOM_OPTION, '', customValue);
+                                                                        }}
+                                                                        placeholder="Formato personalizado (ej: Cubeta)"
+                                                                        className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                                                    />
+                                                                ) : (
+                                                                    <input
+                                                                        type="text"
+                                                                        value={presentacionDetail}
+                                                                        onChange={(e) => updateVariantPresentacionParts(safeActiveVariantIndex, presentacionType, e.target.value, '')}
+                                                                        placeholder="Detalle formato (ej: 100 und / 25 kg)"
+                                                                        className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                                                    />
+                                                                )}
+                                                            </div>
+
+                                                            <div className="space-y-2">
+                                                                <label className="block text-xs font-semibold text-slate-500">Medida</label>
+                                                                <div className="grid grid-cols-2 gap-2">
+                                                                    <input
+                                                                        type="text"
+                                                                        value={medidaParts.value}
+                                                                        onChange={(e) => {
+                                                                            const inputValue = e.target.value;
+                                                                            const normalizedInput = inputValue.replace(/,/g, '.').trimStart();
+
+                                                                            // Si el usuario escribe "9.5 mm" o "9.5 mm x ml", parseamos automáticamente.
+                                                                            const parsed = splitMedida(normalizedInput);
+                                                                            if (parsed.unit) {
+                                                                                const parsedUnit = parsed.unit;
+                                                                                const isKnownUnit = MEDIDA_UNITS.includes(parsedUnit);
+
+                                                                                if (isKnownUnit) {
+                                                                                    updateVariantMedidaUnitMode(activeVariant.id, parsedUnit);
+                                                                                } else {
+                                                                                    updateVariantMedidaUnitMode(activeVariant.id, CUSTOM_OPTION);
+                                                                                    setMedidaUnitCustomByVariant((prev) => ({ ...prev, [activeVariant.id]: parsedUnit }));
+                                                                                }
+
+                                                                                updateVariantMedidaParts(safeActiveVariantIndex, parsed.value, parsedUnit);
+                                                                                return;
+                                                                            }
+
+                                                                            // Campo numérico estricto para evitar mezclar texto y unidad.
+                                                                            const numericValue = normalizedInput.replace(/[^\d.]/g, '');
+                                                                            updateVariantMedidaParts(
+                                                                                safeActiveVariantIndex,
+                                                                                numericValue,
+                                                                                medidaUnitSelect === CUSTOM_OPTION ? medidaUnitCustom : medidaUnitSelect,
+                                                                            );
+                                                                        }}
+                                                                        placeholder="Número (ej: 9,5 o 9.5 mm)"
+                                                                        className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                                                    />
+                                                                    <select
+                                                                        value={medidaUnitSelect}
+                                                                        onChange={(e) => {
+                                                                            const nextUnitMode = e.target.value;
+                                                                            updateVariantMedidaUnitMode(activeVariant.id, nextUnitMode);
+                                                                            if (nextUnitMode === CUSTOM_OPTION) {
+                                                                                updateVariantMedidaParts(safeActiveVariantIndex, medidaParts.value, medidaUnitCustom);
+                                                                            } else {
+                                                                                updateVariantMedidaParts(safeActiveVariantIndex, medidaParts.value, nextUnitMode);
+                                                                            }
+                                                                        }}
+                                                                        className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white"
+                                                                    >
+                                                                        <option value="">Unidad...</option>
+                                                                        {MEDIDA_UNITS.map((unit) => (
+                                                                            <option key={unit} value={unit}>{unit}</option>
+                                                                        ))}
+                                                                        <option value={CUSTOM_OPTION}>Agregar unidad personalizada</option>
+                                                                    </select>
+                                                                </div>
+                                                                {medidaUnitSelect === CUSTOM_OPTION && (
+                                                                    <input
+                                                                        type="text"
+                                                                        value={medidaUnitCustom}
+                                                                        onChange={(e) => {
+                                                                            const customUnit = e.target.value;
+                                                                            setMedidaUnitCustomByVariant((prev) => ({ ...prev, [activeVariant.id]: customUnit }));
+                                                                            updateVariantMedidaParts(safeActiveVariantIndex, medidaParts.value, customUnit);
+                                                                        }}
+                                                                        placeholder="Unidad personalizada (ej: mm x ml)"
+                                                                        className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                                                    />
+                                                                )}
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                            <div>
+                                                                <label className="block text-xs font-semibold text-slate-500 mb-1.5">Color</label>
+                                                                <select
+                                                                    value={colorSelect}
+                                                                    onChange={(e) => {
+                                                                        const nextColorMode = e.target.value;
+                                                                        updateVariantColorMode(activeVariant.id, nextColorMode);
+                                                                        if (nextColorMode !== CUSTOM_OPTION) {
+                                                                            updateVariantField(safeActiveVariantIndex, 'color', nextColorMode);
+                                                                        }
+                                                                    }}
+                                                                    className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white"
+                                                                >
+                                                                    <option value="">Color...</option>
+                                                                    {COLOR_OPTIONS.map((option) => (
+                                                                        <option key={option} value={option}>{option}</option>
+                                                                    ))}
+                                                                    <option value={CUSTOM_OPTION}>Color personalizado</option>
+                                                                </select>
+                                                                {colorSelect === CUSTOM_OPTION && (
+                                                                    <input
+                                                                        type="text"
+                                                                        value={colorCustom}
+                                                                        onChange={(e) => updateVariantField(safeActiveVariantIndex, 'color', e.target.value)}
+                                                                        placeholder="Escribe color personalizado"
+                                                                        className="w-full mt-2 px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                                                    />
+                                                                )}
+                                                            </div>
+                                                            <div>
+                                                                <label className="block text-xs font-semibold text-slate-500 mb-1.5">Material</label>
+                                                                <select
+                                                                    value={materialSelect}
+                                                                    onChange={(e) => {
+                                                                        const nextMaterialMode = e.target.value;
+                                                                        updateVariantMaterialMode(activeVariant.id, nextMaterialMode);
+                                                                        if (nextMaterialMode !== CUSTOM_OPTION) {
+                                                                            updateVariantField(safeActiveVariantIndex, 'material', nextMaterialMode);
+                                                                        }
+                                                                    }}
+                                                                    className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white"
+                                                                >
+                                                                    <option value="">Material...</option>
+                                                                    {MATERIAL_OPTIONS.map((option) => (
+                                                                        <option key={option} value={option}>{option}</option>
+                                                                    ))}
+                                                                    <option value={CUSTOM_OPTION}>Material personalizado</option>
+                                                                </select>
+                                                                {materialSelect === CUSTOM_OPTION && (
+                                                                    <input
+                                                                        type="text"
+                                                                        value={materialCustom}
+                                                                        onChange={(e) => updateVariantField(safeActiveVariantIndex, 'material', e.target.value)}
+                                                                        placeholder="Escribe material personalizado"
+                                                                        className="w-full mt-2 px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                                                    />
+                                                                )}
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                                            <div>
+                                                                <label className="block text-xs font-semibold text-slate-500 mb-1">Peso (kg)</label>
+                                                                <input
+                                                                    type="number"
+                                                                    step="0.01"
+                                                                    value={activeVariant.pesoKg}
+                                                                    onChange={(e) => updateVariantField(safeActiveVariantIndex, 'pesoKg', e.target.value)}
+                                                                    placeholder="Ej: 0.5"
+                                                                    className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                                                />
+                                                            </div>
+                                                            <div>
+                                                                <label className="block text-xs font-semibold text-slate-500 mb-1">Alto (mm)</label>
+                                                                <input
+                                                                    type="number"
+                                                                    value={activeVariant.altoMm}
+                                                                    onChange={(e) => updateVariantField(safeActiveVariantIndex, 'altoMm', e.target.value)}
+                                                                    placeholder="Ej: 200"
+                                                                    className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                                                />
+                                                            </div>
+                                                            <div>
+                                                                <label className="block text-xs font-semibold text-slate-500 mb-1">Ancho (mm)</label>
+                                                                <input
+                                                                    type="number"
+                                                                    value={activeVariant.anchoMm}
+                                                                    onChange={(e) => updateVariantField(safeActiveVariantIndex, 'anchoMm', e.target.value)}
+                                                                    placeholder="Ej: 50"
+                                                                    className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                                                />
+                                                            </div>
+                                                            <div>
+                                                                <label className="block text-xs font-semibold text-slate-500 mb-1">Largo (mm)</label>
+                                                                <input
+                                                                    type="number"
+                                                                    value={activeVariant.largoMm}
+                                                                    onChange={(e) => updateVariantField(safeActiveVariantIndex, 'largoMm', e.target.value)}
+                                                                    placeholder="Ej: 300"
+                                                                    className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                                                />
+                                                            </div>
+                                                        </div>
+
+                                                        <div>
+                                                            <label className="block text-sm font-semibold text-slate-600 mb-2">Descripción del formato</label>
+                                                            <textarea
+                                                                value={activeVariant.description}
+                                                                onChange={(e) => updateVariantField(safeActiveVariantIndex, 'description', e.target.value)}
+                                                                placeholder="Ej: Separador plástico para enfierradura, ideal para mantener recubrimiento uniforme"
+                                                                rows={3}
+                                                                className="w-full px-4 py-3 border border-gray-200 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent resize-none"
+                                                            />
+                                                            {(() => {
+                                                                const wordCount = activeVariant.description.trim() ? activeVariant.description.trim().split(/\s+/).length : 0;
+                                                                const isOver = wordCount > 500;
+                                                                const isNear = wordCount > 450 && wordCount <= 500;
+                                                                return (
+                                                                    <div className="flex items-center justify-between mt-1.5">
+                                                                        <p className={`text-xs font-semibold ${isOver ? 'text-red-600' : isNear ? 'text-amber-600' : 'text-slate-400'}`}>
+                                                                            {wordCount} / 500 palabras
+                                                                        </p>
+                                                                        {isOver && (
+                                                                            <p className="text-xs font-semibold text-red-600">
+                                                                                Reduce la descripción, excede el límite.
+                                                                            </p>
+                                                                        )}
+                                                                    </div>
+                                                                );
+                                                            })()}
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex items-center justify-center gap-1.5">
+                                                    {form.variants.map((variant, index) => (
+                                                        <button
+                                                            key={variant.id}
+                                                            type="button"
+                                                            onClick={() => setActiveVariantIndex(index)}
+                                                            className={`h-2.5 rounded-full transition-all ${index === safeActiveVariantIndex ? 'w-8 bg-orange-500' : 'w-2.5 bg-slate-300 hover:bg-slate-400'}`}
+                                                            aria-label={`Ir al formato ${index + 1}`}
                                                         />
-                                                    )}
+                                                    ))}
                                                 </div>
-                                            </div>
-
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                                <div>
-                                                    <label className="block text-xs font-semibold text-slate-500 mb-1.5">Color</label>
-                                                    <select
-                                                        value={colorSelect}
-                                                        onChange={(e) => {
-                                                            const nextColorMode = e.target.value;
-                                                            updateVariantColorMode(activeVariant.id, nextColorMode);
-                                                            if (nextColorMode !== CUSTOM_OPTION) {
-                                                                updateVariantField(safeActiveVariantIndex, 'color', nextColorMode);
-                                                            }
-                                                        }}
-                                                        className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white"
-                                                    >
-                                                        <option value="">Color...</option>
-                                                        {COLOR_OPTIONS.map((option) => (
-                                                            <option key={option} value={option}>{option}</option>
-                                                        ))}
-                                                        <option value={CUSTOM_OPTION}>Color personalizado</option>
-                                                    </select>
-                                                    {colorSelect === CUSTOM_OPTION && (
-                                                        <input
-                                                            type="text"
-                                                            value={colorCustom}
-                                                            onChange={(e) => updateVariantField(safeActiveVariantIndex, 'color', e.target.value)}
-                                                            placeholder="Escribe color personalizado"
-                                                            className="w-full mt-2 px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                                                        />
-                                                    )}
-                                                </div>
-                                                <div>
-                                                    <label className="block text-xs font-semibold text-slate-500 mb-1.5">Material</label>
-                                                    <select
-                                                        value={materialSelect}
-                                                        onChange={(e) => {
-                                                            const nextMaterialMode = e.target.value;
-                                                            updateVariantMaterialMode(activeVariant.id, nextMaterialMode);
-                                                            if (nextMaterialMode !== CUSTOM_OPTION) {
-                                                                updateVariantField(safeActiveVariantIndex, 'material', nextMaterialMode);
-                                                            }
-                                                        }}
-                                                        className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white"
-                                                    >
-                                                        <option value="">Material...</option>
-                                                        {MATERIAL_OPTIONS.map((option) => (
-                                                            <option key={option} value={option}>{option}</option>
-                                                        ))}
-                                                        <option value={CUSTOM_OPTION}>Material personalizado</option>
-                                                    </select>
-                                                    {materialSelect === CUSTOM_OPTION && (
-                                                        <input
-                                                            type="text"
-                                                            value={materialCustom}
-                                                            onChange={(e) => updateVariantField(safeActiveVariantIndex, 'material', e.target.value)}
-                                                            placeholder="Escribe material personalizado"
-                                                            className="w-full mt-2 px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                                                        />
-                                                    )}
-                                                </div>
-                                            </div>
-
-                                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                                                <div>
-                                                    <label className="block text-xs font-semibold text-slate-500 mb-1">Peso (kg)</label>
-                                                    <input
-                                                        type="number"
-                                                        step="0.01"
-                                                        value={activeVariant.pesoKg}
-                                                        onChange={(e) => updateVariantField(safeActiveVariantIndex, 'pesoKg', e.target.value)}
-                                                        placeholder="Ej: 0.5"
-                                                        className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <label className="block text-xs font-semibold text-slate-500 mb-1">Alto (mm)</label>
-                                                    <input
-                                                        type="number"
-                                                        value={activeVariant.altoMm}
-                                                        onChange={(e) => updateVariantField(safeActiveVariantIndex, 'altoMm', e.target.value)}
-                                                        placeholder="Ej: 200"
-                                                        className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <label className="block text-xs font-semibold text-slate-500 mb-1">Ancho (mm)</label>
-                                                    <input
-                                                        type="number"
-                                                        value={activeVariant.anchoMm}
-                                                        onChange={(e) => updateVariantField(safeActiveVariantIndex, 'anchoMm', e.target.value)}
-                                                        placeholder="Ej: 50"
-                                                        className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <label className="block text-xs font-semibold text-slate-500 mb-1">Largo (mm)</label>
-                                                    <input
-                                                        type="number"
-                                                        value={activeVariant.largoMm}
-                                                        onChange={(e) => updateVariantField(safeActiveVariantIndex, 'largoMm', e.target.value)}
-                                                        placeholder="Ej: 300"
-                                                        className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                                                    />
-                                                </div>
-                                            </div>
-
-                                            <div>
-                                                <label className="block text-sm font-semibold text-slate-600 mb-2">Descripción del formato</label>
-                                                <textarea
-                                                    value={activeVariant.description}
-                                                    onChange={(e) => updateVariantField(safeActiveVariantIndex, 'description', e.target.value)}
-                                                    placeholder="Ej: Separador plástico para enfierradura, ideal para mantener recubrimiento uniforme"
-                                                    rows={3}
-                                                    className="w-full px-4 py-3 border border-gray-200 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent resize-none"
-                                                />
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex items-center justify-center gap-1.5">
-                                        {form.variants.map((variant, index) => (
-                                            <button
-                                                key={variant.id}
-                                                type="button"
-                                                onClick={() => setActiveVariantIndex(index)}
-                                                className={`h-2.5 rounded-full transition-all ${index === safeActiveVariantIndex ? 'w-8 bg-orange-500' : 'w-2.5 bg-slate-300 hover:bg-slate-400'}`}
-                                                aria-label={`Ir al formato ${index + 1}`}
-                                            />
-                                        ))}
-                                    </div>
                                             </>
                                         );
                                     })()}
@@ -1194,12 +1219,12 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
                                 </div>
                                 <div className="space-y-2">
                                     {form.recursos.map((res, i) => (
-                                        <div key={i} className="grid grid-cols-[1fr_1.5fr_auto] gap-2 items-center">
+                                        <div key={i} className="grid grid-cols-1 sm:grid-cols-[1fr_1.5fr_auto] gap-2 items-center">
                                             <input type="text" value={res.label} onChange={(e) => updateResource(i, 'label', e.target.value)} placeholder="Ej: Ficha técnica PDF"
                                                 className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent" />
                                             <input type="url" value={res.url} onChange={(e) => updateResource(i, 'url', e.target.value)} placeholder="Ej: https://miportal.cl/docs/ficha-separador.pdf"
                                                 className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent" />
-                                            <button type="button" onClick={() => removeResource(i)} className="text-slate-300 hover:text-red-500 transition-colors p-1" disabled={form.recursos.length <= 1}>
+                                            <button type="button" onClick={() => removeResource(i)} className="text-slate-300 hover:text-red-500 transition-colors p-1 justify-self-end sm:justify-self-auto" disabled={form.recursos.length <= 1}>
                                                 <Trash2 className="w-4 h-4" />
                                             </button>
                                         </div>
@@ -1222,11 +1247,10 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
                                         key={idx}
                                         type="button"
                                         onClick={() => setActiveImageSlot(idx)}
-                                        className={`aspect-square rounded-2xl overflow-hidden border-2 relative transition-all ${
-                                            idx === activeImageSlot
-                                                ? 'border-orange-500 shadow-md shadow-orange-500/20'
-                                                : 'border-gray-200 hover:border-orange-300'
-                                        }`}
+                                        className={`aspect-square rounded-2xl overflow-hidden border-2 relative transition-all ${idx === activeImageSlot
+                                            ? 'border-orange-500 shadow-md shadow-orange-500/20'
+                                            : 'border-gray-200 hover:border-orange-300'
+                                            }`}
                                     >
                                         {hasContent ? (
                                             <img
@@ -1404,11 +1428,10 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
                                         onChange={(e) => updateImageFile(activeImageSlot, e.target.files?.[0] ?? null)}
                                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                                     />
-                                    <div className={`px-3 py-2.5 border rounded-xl text-sm text-center font-medium pointer-events-none transition-colors ${
-                                        imgSlotHasContent
-                                            ? 'bg-white border-gray-200 text-slate-600'
-                                            : 'bg-orange-500 border-orange-500 text-white'
-                                    }`}>
+                                    <div className={`px-3 py-2.5 border rounded-xl text-sm text-center font-medium pointer-events-none transition-colors ${imgSlotHasContent
+                                        ? 'bg-white border-gray-200 text-slate-600'
+                                        : 'bg-orange-500 border-orange-500 text-white'
+                                        }`}>
                                         {imgSlot?.file ? imgSlot.file.name.slice(0, 28) : 'Subir archivo'}
                                     </div>
                                 </div>
@@ -1425,35 +1448,37 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
             </div>
 
             {/* Expanded image modal */}
-            {editorImageExpanded && (
-                <div
-                    className="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4"
-                    onClick={() => setEditorImageExpanded(false)}
-                    role="dialog"
-                    aria-modal="true"
-                >
-                    <div className="relative max-w-6xl w-full" onClick={(e) => e.stopPropagation()}>
-                        <button
-                            type="button"
-                            onClick={() => setEditorImageExpanded(false)}
-                            className="absolute -top-11 right-0 text-white/90 hover:text-white flex items-center gap-2 text-sm font-semibold"
-                        >
-                            <X className="w-5 h-5" /> Cerrar
-                        </button>
-                        <div className="bg-white rounded-2xl overflow-hidden shadow-2xl">
-                            <div className="relative w-full aspect-[16/10] bg-black">
-                                <img
-                                    src={imagePreviews[activeImageSlot] || DEFAULT_IMAGE}
-                                    alt={`Imagen expandida ${activeImageSlot + 1}`}
-                                    className="absolute inset-0 w-full h-full object-contain"
-                                    loading="eager"
-                                />
+            {
+                editorImageExpanded && (
+                    <div
+                        className="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4"
+                        onClick={() => setEditorImageExpanded(false)}
+                        role="dialog"
+                        aria-modal="true"
+                    >
+                        <div className="relative max-w-6xl w-full" onClick={(e) => e.stopPropagation()}>
+                            <button
+                                type="button"
+                                onClick={() => setEditorImageExpanded(false)}
+                                className="absolute -top-11 right-0 text-white/90 hover:text-white flex items-center gap-2 text-sm font-semibold"
+                            >
+                                <X className="w-5 h-5" /> Cerrar
+                            </button>
+                            <div className="bg-white rounded-2xl overflow-hidden shadow-2xl">
+                                <div className="relative w-full aspect-[16/10] bg-black">
+                                    <img
+                                        src={imagePreviews[activeImageSlot] || DEFAULT_IMAGE}
+                                        alt={`Imagen expandida ${activeImageSlot + 1}`}
+                                        className="absolute inset-0 w-full h-full object-contain"
+                                        loading="eager"
+                                    />
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 
     /* ═══════════════════════════════════════════════
@@ -1495,12 +1520,11 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
                         </div>
                     )}
                     {previewStock && (
-                        <div className={`absolute top-3 left-3 text-sm font-bold px-3 py-1.5 rounded-lg shadow ${
-                            previewStock === 'EN STOCK' ? 'bg-emerald-500 text-white'
+                        <div className={`absolute top-3 left-3 text-sm font-bold px-3 py-1.5 rounded-lg shadow ${previewStock === 'EN STOCK' ? 'bg-emerald-500 text-white'
                             : previewStock === 'BAJO STOCK' ? 'bg-amber-500 text-white'
-                            : previewStock === 'A PEDIDO' ? 'bg-blue-500 text-white'
-                            : 'bg-red-500 text-white'
-                        }`}>
+                                : previewStock === 'A PEDIDO' ? 'bg-blue-500 text-white'
+                                    : 'bg-red-500 text-white'
+                            }`}>
                             {previewStock}
                         </div>
                     )}
@@ -1542,11 +1566,10 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
                                         key={variant.id}
                                         type="button"
                                         onClick={() => setPreviewVariantIndex(index)}
-                                        className={`px-3 py-1.5 rounded-lg border text-xs font-semibold whitespace-nowrap transition-colors ${
-                                            index === safePreviewVariantIndex
-                                                ? 'border-orange-400 bg-orange-50 text-orange-700'
-                                                : 'border-slate-200 text-slate-500 hover:border-slate-300'
-                                        }`}
+                                        className={`px-3 py-1.5 rounded-lg border text-xs font-semibold whitespace-nowrap transition-colors ${index === safePreviewVariantIndex
+                                            ? 'border-orange-400 bg-orange-50 text-orange-700'
+                                            : 'border-slate-200 text-slate-500 hover:border-slate-300'
+                                            }`}
                                     >
                                         {variant.medida || `Formato ${index + 1}`}
                                     </button>
@@ -1691,17 +1714,15 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
                 <div className="flex items-center gap-2 mb-5">
                     <button
                         onClick={() => setMobileStep('form')}
-                        className={`flex-1 py-2.5 rounded-xl text-sm font-semibold text-center transition-all ${
-                            mobileStep === 'form' ? 'bg-orange-600 text-white shadow-md shadow-orange-600/20' : 'bg-slate-100 text-slate-500'
-                        }`}
+                        className={`flex-1 py-2.5 rounded-xl text-sm font-semibold text-center transition-all ${mobileStep === 'form' ? 'bg-orange-600 text-white shadow-md shadow-orange-600/20' : 'bg-slate-100 text-slate-500'
+                            }`}
                     >
                         Formulario
                     </button>
                     <button
                         onClick={() => setMobileStep('preview')}
-                        className={`flex-1 py-2.5 rounded-xl text-sm font-semibold text-center transition-all ${
-                            mobileStep === 'preview' ? 'bg-orange-600 text-white shadow-md shadow-orange-600/20' : 'bg-slate-100 text-slate-500'
-                        }`}
+                        className={`flex-1 py-2.5 rounded-xl text-sm font-semibold text-center transition-all ${mobileStep === 'preview' ? 'bg-orange-600 text-white shadow-md shadow-orange-600/20' : 'bg-slate-100 text-slate-500'
+                            }`}
                     >
                         Vista Previa
                     </button>

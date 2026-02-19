@@ -13,6 +13,8 @@ import {
     ChevronDown,
     Eye,
     EyeOff,
+    AlertTriangle,
+    X,
 } from 'lucide-react';
 import { getSupabaseBrowserClient } from '@/src/shared/lib/supabase';
 
@@ -46,6 +48,7 @@ export default function AdminUsersPage() {
     const [showEditPassword, setShowEditPassword] = useState(false);
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+    const [confirmAction, setConfirmAction] = useState<{ user: AdminUser; action: 'disable' | 'enable' | 'delete' } | null>(null);
 
     const withAdminToken = useCallback(async () => {
         const sb = getSupabaseBrowserClient();
@@ -248,7 +251,7 @@ export default function AdminUsersPage() {
             return;
         }
 
-        setMessage({ type: 'success', text: 'Usuario eliminado (soft delete) correctamente.' });
+        setMessage({ type: 'success', text: 'Usuario eliminado correctamente.' });
         void loadUsers();
     };
 
@@ -280,14 +283,14 @@ export default function AdminUsersPage() {
             </div>
 
             <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-                Todos los usuarios creados aquí tendrán rol administrador. Recomendación: crear cuentas solo cuando realmente se necesiten.
+                Los usuarios creados aquí tendrán acceso completo al panel de administración. Crea cuentas solo cuando sea necesario.
             </div>
 
             {message && (
                 <div className={`rounded-xl px-4 py-3 text-sm font-semibold ${message.type === 'success'
                     ? 'bg-emerald-50 border border-emerald-200 text-emerald-700'
                     : 'bg-red-50 border border-red-200 text-red-700'
-                }`}>
+                    }`}>
                     {message.text}
                 </div>
             )}
@@ -324,7 +327,7 @@ export default function AdminUsersPage() {
                                 className={`px-3 py-2 rounded-xl text-xs font-semibold transition-colors ${filter === item.key
                                     ? 'bg-slate-800 text-white'
                                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                                }`}
+                                    }`}
                             >
                                 {item.label}
                             </button>
@@ -354,7 +357,7 @@ export default function AdminUsersPage() {
                                         <p className="text-xs text-slate-500 truncate">{user.email}</p>
                                         <div className="flex items-center gap-2 mt-2 flex-wrap">
                                             <UserStateBadge estado={user.estado} />
-                                            <span className="text-[11px] text-slate-500">Alta: {formatDate(user.createdAt)}</span>
+                                            <span className="text-[11px] text-slate-500">Creado: {formatDate(user.createdAt)}</span>
                                             <span className="text-[11px] text-slate-500">Último acceso: {formatDate(user.lastSignInAt)}</span>
                                         </div>
                                     </div>
@@ -373,7 +376,7 @@ export default function AdminUsersPage() {
                                         {user.estado === 'activo' && (
                                             <button
                                                 type="button"
-                                                onClick={() => void handleStateAction(user.id, 'disable')}
+                                                onClick={() => setConfirmAction({ user, action: 'disable' })}
                                                 disabled={saving}
                                                 className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200"
                                             >
@@ -384,7 +387,7 @@ export default function AdminUsersPage() {
                                         {user.estado === 'deshabilitado' && (
                                             <button
                                                 type="button"
-                                                onClick={() => void handleStateAction(user.id, 'enable')}
+                                                onClick={() => setConfirmAction({ user, action: 'enable' })}
                                                 disabled={saving}
                                                 className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200"
                                             >
@@ -395,7 +398,7 @@ export default function AdminUsersPage() {
                                         {user.estado !== 'eliminado' && (
                                             <button
                                                 type="button"
-                                                onClick={() => void handleDeleteUser(user.id)}
+                                                onClick={() => setConfirmAction({ user, action: 'delete' })}
                                                 disabled={saving}
                                                 className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-red-50 text-red-700 hover:bg-red-100"
                                             >
@@ -500,7 +503,7 @@ export default function AdminUsersPage() {
                     <button className="absolute inset-0 bg-black/50" onClick={() => setEditingUser(null)} />
                     <div className="relative bg-white w-full max-w-lg rounded-2xl p-5 shadow-2xl space-y-3">
                         <h2 className="text-lg font-bold text-slate-900">Editar usuario</h2>
-                        <p className="text-xs text-slate-500 break-all">ID: {editingUser.id}</p>
+                        <p className="text-xs text-slate-500">{editingUser.email}</p>
 
                         <div>
                             <label className="block text-xs font-semibold text-slate-500 mb-1">Nombre</label>
@@ -575,6 +578,94 @@ export default function AdminUsersPage() {
                     </div>
                 </div>
             )}
+
+            {/* Confirmation modal for Disable / Enable / Delete */}
+            {confirmAction && (() => {
+                const { user: targetUser, action } = confirmAction;
+                const config = {
+                    disable: {
+                        title: 'Deshabilitar usuario',
+                        description: `El usuario ${targetUser.nombre || targetUser.email} no podrá iniciar sesión ni acceder al panel de administración hasta que sea habilitado nuevamente.`,
+                        confirmLabel: 'Sí, deshabilitar',
+                        iconBg: 'bg-amber-100',
+                        iconColor: 'text-amber-700',
+                        Icon: Ban,
+                        btnClass: 'bg-amber-600 hover:bg-amber-700 text-white',
+                    },
+                    enable: {
+                        title: 'Habilitar usuario',
+                        description: `El usuario ${targetUser.nombre || targetUser.email} recuperará el acceso completo al panel de administración y podrá iniciar sesión nuevamente.`,
+                        confirmLabel: 'Sí, habilitar',
+                        iconBg: 'bg-emerald-100',
+                        iconColor: 'text-emerald-700',
+                        Icon: CheckCircle2,
+                        btnClass: 'bg-emerald-600 hover:bg-emerald-700 text-white',
+                    },
+                    delete: {
+                        title: 'Eliminar usuario',
+                        description: `El usuario ${targetUser.nombre || targetUser.email} será eliminado del sistema. No podrá acceder al panel y su cuenta quedará marcada como eliminada.`,
+                        confirmLabel: 'Sí, eliminar',
+                        iconBg: 'bg-red-100',
+                        iconColor: 'text-red-600',
+                        Icon: AlertTriangle,
+                        btnClass: 'bg-red-600 hover:bg-red-700 text-white',
+                    },
+                } as const;
+
+                const c = config[action];
+
+                const handleConfirm = async () => {
+                    setConfirmAction(null);
+                    if (action === 'delete') {
+                        await handleDeleteUser(targetUser.id);
+                    } else {
+                        await handleStateAction(targetUser.id, action);
+                    }
+                };
+
+                return (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                        <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setConfirmAction(null)} />
+                        <div className="relative bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl">
+                            <button
+                                onClick={() => setConfirmAction(null)}
+                                className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className={`${c.iconBg} p-2.5 rounded-xl`}>
+                                    <c.Icon className={`w-5 h-5 ${c.iconColor}`} />
+                                </div>
+                                <h3 className="text-lg font-bold text-slate-900">{c.title}</h3>
+                            </div>
+
+                            <p className="text-sm text-slate-600 mb-3">{c.description}</p>
+
+                            <p className="text-sm font-semibold text-slate-800 mb-6 bg-slate-50 rounded-lg p-3">
+                                {targetUser.email}
+                            </p>
+
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => setConfirmAction(null)}
+                                    className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors"
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    onClick={() => void handleConfirm()}
+                                    disabled={saving}
+                                    className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors disabled:opacity-60 ${c.btnClass}`}
+                                >
+                                    {c.confirmLabel}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            })()}
         </div>
     );
 }

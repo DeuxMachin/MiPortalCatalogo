@@ -24,6 +24,7 @@ export interface AdminProductInputDTO {
     quickSpecs?: Array<{ label: string; value: string }>;
     notaTecnica?: string;
     recursos?: Array<{ label: string; url: string }>;
+    variants?: any[];
 }
 
 export interface AdminProductActionDTO {
@@ -43,7 +44,7 @@ export function validateAdminProductInput(input: Partial<AdminProductInputDTO>):
         errors.push('El precio debe ser un número válido mayor o igual a 0.');
     }
 
-    if (!input.stock || !['EN STOCK', 'SIN STOCK', 'A PEDIDO'].includes(input.stock)) {
+    if (!input.stock || !['EN STOCK', 'BAJO STOCK', 'SIN STOCK', 'A PEDIDO'].includes(input.stock)) {
         errors.push('El estado de stock no es válido.');
     }
 

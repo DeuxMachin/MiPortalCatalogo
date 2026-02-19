@@ -46,12 +46,7 @@ export default function CatalogViewWithModal() {
     const { trackView, trackClick } = useProductInteractionTracker();
     const { popularityByProductId } = useProductPopularity(allProducts);
     const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
-    const [viewMode, setViewMode] = useState<ViewMode>(() => {
-        if (typeof window !== 'undefined' && window.innerWidth <= 1023) {
-            return 'list';
-        }
-        return 'grid';
-    });
+    const [viewMode, setViewMode] = useState<ViewMode>('grid');
     const [searchQuery, setSearchQuery] = useState('');
     const [stockFilter, setStockFilter] = useState<StockStatus | null>(null);
     const [sortBy, setSortBy] = useState<SortOption>('recommended');
@@ -85,23 +80,6 @@ export default function CatalogViewWithModal() {
         return () => mediaQuery.removeEventListener('change', onChange);
     }, []);
 
-    useEffect(() => {
-        if (typeof window === 'undefined') return;
-
-        const mediaQuery = window.matchMedia('(max-width: 1023px)');
-        const syncResponsiveDefaults = (matchesTabletOrDown: boolean) => {
-            setViewMode(matchesTabletOrDown ? 'list' : 'grid');
-        };
-
-        syncResponsiveDefaults(mediaQuery.matches);
-
-        const onChange = (event: MediaQueryListEvent) => {
-            syncResponsiveDefaults(event.matches);
-        };
-
-        mediaQuery.addEventListener('change', onChange);
-        return () => mediaQuery.removeEventListener('change', onChange);
-    }, []);
 
     const categoryNameById = useMemo(() => {
         return new Map(activeCategories.map((c) => [c.id, c.nombre] as const));
@@ -272,9 +250,9 @@ export default function CatalogViewWithModal() {
                                     <button
                                         onClick={() => router.push('/catalog/categories')}
                                         className="md:hidden text-xs font-semibold text-slate-600 bg-white border border-slate-200 rounded-lg px-3 py-2 hover:border-orange-300 hover:text-orange-600 transition-colors"
-                                        aria-label="Ver categorÃ­as"
+                                        aria-label="Ver categorías"
                                     >
-                                        CategorÃ­as
+                                        Categorías
                                     </button>
 
                                     <div className="flex bg-white border border-slate-200 rounded-lg p-1">
@@ -391,11 +369,10 @@ function FilterChip({
     return (
         <button
             onClick={onClick}
-            className={`px-3 py-1.5 rounded-full text-xs md:text-sm font-semibold whitespace-nowrap transition-all flex items-center gap-2 border ${
-                active
-                    ? 'bg-orange-600 border-orange-600 text-white shadow-md shadow-orange-200'
-                    : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
-            }`}
+            className={`px-3 py-1.5 rounded-full text-xs md:text-sm font-semibold whitespace-nowrap transition-all flex items-center gap-2 border ${active
+                ? 'bg-orange-600 border-orange-600 text-white shadow-md shadow-orange-200'
+                : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+                }`}
         >
             {label}
             {active && <X className="w-3 h-3" />}
@@ -432,28 +409,41 @@ function CatalogProductCard({
     onIntentClick: (action: string) => void;
 }) {
     if (viewMode === 'list') {
+        const priceEl = product.precioVisible !== false ? (
+            <span className="font-bold text-slate-800 text-sm">${formatPrice(product.price)}</span>
+        ) : (
+            <span className="font-bold text-orange-700 text-sm">Consultar precio</span>
+        );
+
         return (
             <div
                 onClick={onOpen}
-                className="group bg-white border border-slate-200 rounded-xl p-3 md:p-4 flex items-center gap-4 hover:shadow-lg hover:border-orange-200 transition-all cursor-pointer"
+                className="group bg-white border border-slate-200 rounded-xl p-3 md:p-4 flex items-center gap-3 md:gap-4 hover:shadow-lg hover:border-orange-200 transition-all cursor-pointer"
             >
-                <div className="w-16 h-16 rounded-lg bg-slate-50 overflow-hidden shrink-0 border border-slate-100">
+                {/* Thumbnail */}
+                <div className="w-14 h-14 md:w-16 md:h-16 rounded-lg bg-slate-50 overflow-hidden shrink-0 border border-slate-100">
                     <img
                         src={product.images[0]}
                         className="w-full h-full object-cover"
                         alt={product.title}
                     />
                 </div>
+
+                {/* Main info */}
                 <div className="flex-1 min-w-0">
-                    <div className="mb-0.5">
-                        <span className="text-xs md:text-sm font-semibold text-orange-700 bg-orange-50 px-2.5 py-0.5 rounded-full w-fit">
-                            Categoria: {categoryLabel}
-                        </span>
-                    </div>
-                    <h3 className="font-bold text-slate-800 text-base md:text-lg truncate">{product.title}</h3>
-                    <p className="text-sm text-slate-600">{product.presentacion ?? product.unit}</p>
+                    <span className="inline-block text-[11px] font-semibold text-orange-700 bg-orange-50 px-2 py-0.5 rounded-full mb-1">
+                        {categoryLabel}
+                    </span>
+                    {/* Title — full text, 2-line clamp */}
+                    <h3 className="font-bold text-slate-800 text-sm md:text-base leading-snug line-clamp-2 group-hover:text-orange-700 transition-colors">
+                        {product.title}
+                    </h3>
+                    {/* Price shown inline on mobile, hidden on sm+ (right column handles it) */}
+                    <div className="mt-1 sm:hidden">{priceEl}</div>
                 </div>
-                <div className="text-right shrink-0">
+
+                {/* Right column — price + quick-view, hidden on mobile */}
+                <div className="hidden sm:flex flex-col items-end shrink-0 gap-1">
                     {product.precioVisible !== false ? (
                         <p className="text-lg md:text-xl font-bold text-slate-800">${formatPrice(product.price)}</p>
                     ) : (
@@ -465,9 +455,9 @@ function CatalogProductCard({
                             onIntentClick('quick_view');
                             onOpen();
                         }}
-                        className="text-[10px] font-bold text-slate-400 hover:text-orange-600 transition-colors uppercase tracking-widest mt-1"
+                        className="text-[10px] font-bold text-slate-400 hover:text-orange-600 transition-colors uppercase tracking-widest"
                     >
-                        Ficha rapida
+                        Ficha rápida
                     </button>
                 </div>
             </div>

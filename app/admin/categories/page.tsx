@@ -135,7 +135,7 @@ export default function AdminCategoriesPage() {
                 <div className={`rounded-xl px-4 py-3 text-sm font-semibold ${toast.type === 'success'
                     ? 'bg-emerald-50 border border-emerald-200 text-emerald-700'
                     : 'bg-red-50 border border-red-200 text-red-700'
-                }`}>
+                    }`}>
                     {toast.message}
                 </div>
             )}
@@ -146,7 +146,7 @@ export default function AdminCategoriesPage() {
                 </div>
             )}
 
-            <div className="grid xl:grid-cols-[340px_1fr] gap-4 lg:gap-6">
+            <div className="grid lg:grid-cols-[300px_1fr] xl:grid-cols-[340px_1fr] gap-4 lg:gap-6">
                 <section className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
                     <h2 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
                         <Layers className="w-4 h-4" /> Lista de categorías
@@ -184,7 +184,7 @@ export default function AdminCategoriesPage() {
                                         className={`w-full text-left rounded-xl border px-3 py-2.5 transition-colors ${isActive
                                             ? 'border-orange-300 bg-orange-50'
                                             : 'border-gray-200 hover:border-orange-200 hover:bg-orange-50/50'
-                                        }`}
+                                            }`}
                                     >
                                         <div className="flex items-start justify-between gap-2">
                                             <p className="text-sm font-semibold text-slate-800 truncate">{category.nombre}</p>
@@ -192,7 +192,7 @@ export default function AdminCategoriesPage() {
                                                 {count} prod.
                                             </span>
                                         </div>
-                                        <p className="text-xs text-slate-500 mt-1 truncate">/{category.slug}</p>
+
                                     </button>
                                 );
                             })
@@ -246,7 +246,7 @@ export default function AdminCategoriesPage() {
                                     onChange={(e) => setEditingName(e.target.value)}
                                     className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
                                 />
-                                <p className="text-xs text-slate-500 mt-1.5">Slug actual: /{selectedCategory.slug}</p>
+                                <p className="text-xs text-slate-400 mt-1.5">Escribe el nuevo nombre y haz clic en "Guardar cambios".</p>
                             </div>
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">

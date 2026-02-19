@@ -208,9 +208,8 @@ export default function ProductDetailView({ product }: ProductDetailViewProps) {
                         {productData.description && (
                             <div className="bg-slate-50 border border-slate-200 rounded-xl p-5">
                                 <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wide mb-2">Descripción</h3>
-                                <p className="text-sm text-slate-700 leading-relaxed">
-                                    {productData.description.substring(0, 300)}
-                                    {productData.description.length > 300 ? '...' : ''}
+                                <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">
+                                    {productData.description}
                                 </p>
                             </div>
                         )}

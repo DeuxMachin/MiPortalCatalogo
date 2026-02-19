@@ -20,6 +20,7 @@ export async function createProductUseCase(
             fullSpecs: dto.fullSpecs ?? dto.specs ?? {},
             quickSpecs: dto.quickSpecs ?? [],
             recursos: dto.recursos ?? [],
+            variants: dto.variants ?? [],
             images: [],
             category: '',
         },
