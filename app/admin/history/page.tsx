@@ -25,6 +25,7 @@ export default function AdminHistoryPage() {
     const [currentPage, setCurrentPage] = useState(1);
 
     // Reset page on search change
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     useEffect(() => { setCurrentPage(1); }, [query]);
 
     const loadHistory = useCallback(async () => {
@@ -61,9 +62,11 @@ export default function AdminHistoryPage() {
         setLoading(false);
     }, []);
 
+    /* eslint-disable react-hooks/set-state-in-effect */
     useEffect(() => {
         void loadHistory();
     }, [loadHistory]);
+    /* eslint-enable react-hooks/set-state-in-effect */
 
     const filtered = useMemo(() => {
         const normalized = query.trim().toLowerCase();

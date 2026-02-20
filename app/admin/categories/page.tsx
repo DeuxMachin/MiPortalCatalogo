@@ -34,6 +34,7 @@ export default function AdminCategoriesPage() {
         return map;
     }, [products]);
 
+    /* eslint-disable react-hooks/set-state-in-effect */
     useEffect(() => {
         if (!selectedCategoryId && categories.length > 0) {
             setSelectedCategoryId(categories[0].id);
@@ -47,6 +48,7 @@ export default function AdminCategoriesPage() {
             setEditingName(fallback?.nombre ?? '');
         }
     }, [categories, selectedCategoryId]);
+    /* eslint-enable react-hooks/set-state-in-effect */
 
     const selectedCategory = categories.find((category) => category.id === selectedCategoryId) ?? null;
     const selectedCategoryProducts = selectedCategory
@@ -246,7 +248,7 @@ export default function AdminCategoriesPage() {
                                     onChange={(e) => setEditingName(e.target.value)}
                                     className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
                                 />
-                                <p className="text-xs text-slate-400 mt-1.5">Escribe el nuevo nombre y haz clic en "Guardar cambios".</p>
+                                <p className="text-xs text-slate-400 mt-1.5">Escribe el nuevo nombre y haz clic en &quot;Guardar cambios&quot;.</p>
                             </div>
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">

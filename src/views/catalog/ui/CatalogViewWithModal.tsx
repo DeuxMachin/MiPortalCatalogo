@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
     ArrowRight,
+    ChevronLeft,
+    ChevronRight,
     Filter,
     LayoutGrid,
     List as ListIcon,
@@ -24,6 +26,8 @@ import { getCategoryPopularityRank } from '@/src/shared/lib/categoryPopularityOr
 
 type ViewMode = 'grid' | 'list';
 type SortOption = 'recommended' | 'popular' | 'price-asc' | 'price-desc' | 'name-asc';
+
+const PRODUCTS_PER_PAGE = 15;
 
 const SORT_OPTIONS: { value: SortOption; label: string }[] = [
     { value: 'recommended', label: 'Recomendado' },
@@ -53,6 +57,7 @@ export default function CatalogViewWithModal() {
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [currentPage, setCurrentPage] = useState(1);
 
     useEffect(() => {
         if (typeof window === 'undefined') return;
@@ -157,6 +162,26 @@ export default function CatalogViewWithModal() {
         return products;
     }, [activeCategoryId, allProducts, categoryNameById, popularityByProductId, searchQuery, sortBy, stockFilter]);
 
+    // Reset to page 1 when filters change
+    /* eslint-disable react-hooks/set-state-in-effect */
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [activeCategoryId, searchQuery, sortBy, stockFilter]);
+    /* eslint-enable react-hooks/set-state-in-effect */
+
+    // Pagination computations
+    const totalPages = Math.max(1, Math.ceil(filteredProducts.length / PRODUCTS_PER_PAGE));
+    const safePage = Math.min(currentPage, totalPages);
+    const startIndex = (safePage - 1) * PRODUCTS_PER_PAGE;
+    const endIndex = Math.min(startIndex + PRODUCTS_PER_PAGE, filteredProducts.length);
+    const paginatedProducts = filteredProducts.slice(startIndex, endIndex);
+
+    const goToPage = (page: number) => {
+        const clamped = Math.max(1, Math.min(page, totalPages));
+        setCurrentPage(clamped);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
     const activeCategoryName = activeCategoryId
         ? activeCategories.find((c) => c.id === activeCategoryId)?.nombre
         : null;
@@ -195,6 +220,7 @@ export default function CatalogViewWithModal() {
         setSearchQuery('');
         setStockFilter(null);
         setActiveCategoryId(null);
+        setCurrentPage(1);
     };
 
     const getCategoryName = (product: Product) =>
@@ -329,18 +355,31 @@ export default function CatalogViewWithModal() {
                                 </button>
                             </div>
                         ) : (
-                            <div className={`grid gap-5 ${viewMode === 'grid' ? 'grid-cols-1 md:grid-cols-2 2xl:grid-cols-3' : 'grid-cols-1'}`}>
-                                {filteredProducts.map((product) => (
-                                    <CatalogProductCard
-                                        key={product.id}
-                                        product={product}
-                                        viewMode={viewMode}
-                                        categoryLabel={getCategoryName(product)}
-                                        onOpen={() => handleProductOpen(product)}
-                                        onIntentClick={(action) => handleProductIntentClick(product, action)}
+                            <>
+                                <div className={`grid gap-5 ${viewMode === 'grid' ? 'grid-cols-1 md:grid-cols-2 2xl:grid-cols-3' : 'grid-cols-1'}`}>
+                                    {paginatedProducts.map((product) => (
+                                        <CatalogProductCard
+                                            key={product.id}
+                                            product={product}
+                                            viewMode={viewMode}
+                                            categoryLabel={getCategoryName(product)}
+                                            onOpen={() => handleProductOpen(product)}
+                                            onIntentClick={(action) => handleProductIntentClick(product, action)}
+                                        />
+                                    ))}
+                                </div>
+
+                                {totalPages > 1 && (
+                                    <PaginationControls
+                                        currentPage={safePage}
+                                        totalPages={totalPages}
+                                        startIndex={startIndex}
+                                        endIndex={endIndex}
+                                        totalItems={filteredProducts.length}
+                                        onPageChange={goToPage}
                                     />
-                                ))}
-                            </div>
+                                )}
+                            </>
                         )}
                     </main>
                 </div>
@@ -526,5 +565,94 @@ function CatalogProductCard({
     );
 }
 
+function PaginationControls({
+    currentPage,
+    totalPages,
+    startIndex,
+    endIndex,
+    totalItems,
+    onPageChange,
+}: {
+    currentPage: number;
+    totalPages: number;
+    startIndex: number;
+    endIndex: number;
+    totalItems: number;
+    onPageChange: (page: number) => void;
+}) {
+    // Build page numbers with ellipsis
+    const getPageNumbers = (): (number | 'ellipsis-start' | 'ellipsis-end')[] => {
+        const pages: (number | 'ellipsis-start' | 'ellipsis-end')[] = [];
+        if (totalPages <= 7) {
+            for (let i = 1; i <= totalPages; i++) pages.push(i);
+        } else {
+            pages.push(1);
+            if (currentPage > 3) pages.push('ellipsis-start');
+            const start = Math.max(2, currentPage - 1);
+            const end = Math.min(totalPages - 1, currentPage + 1);
+            for (let i = start; i <= end; i++) pages.push(i);
+            if (currentPage < totalPages - 2) pages.push('ellipsis-end');
+            pages.push(totalPages);
+        }
+        return pages;
+    };
 
+    const pageNumbers = getPageNumbers();
 
+    return (
+        <div className="mt-8 flex flex-col items-center gap-4">
+            {/* Page buttons */}
+            <div className="flex items-center gap-1.5">
+                {/* Prev */}
+                <button
+                    onClick={() => onPageChange(currentPage - 1)}
+                    disabled={currentPage <= 1}
+                    className="flex items-center justify-center w-9 h-9 rounded-xl border border-slate-200 bg-white text-slate-500 hover:border-orange-300 hover:text-orange-600 transition-all disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:border-slate-200 disabled:hover:text-slate-500"
+                    aria-label="Página anterior"
+                >
+                    <ChevronLeft className="w-4 h-4" />
+                </button>
+
+                {pageNumbers.map((page) => {
+                    if (typeof page === 'string') {
+                        return (
+                            <span key={page} className="w-9 h-9 flex items-center justify-center text-slate-400 text-sm select-none">
+                                ···
+                            </span>
+                        );
+                    }
+                    const isActive = page === currentPage;
+                    return (
+                        <button
+                            key={`page-${page}`}
+                            onClick={() => onPageChange(page)}
+                            className={`w-9 h-9 rounded-xl text-sm font-semibold transition-all ${isActive
+                                ? 'bg-orange-600 text-white shadow-md shadow-orange-200 scale-105'
+                                : 'bg-white border border-slate-200 text-slate-600 hover:border-orange-300 hover:text-orange-600'
+                                }`}
+                            aria-label={`Ir a página ${page}`}
+                            aria-current={isActive ? 'page' : undefined}
+                        >
+                            {page}
+                        </button>
+                    );
+                })}
+
+                {/* Next */}
+                <button
+                    onClick={() => onPageChange(currentPage + 1)}
+                    disabled={currentPage >= totalPages}
+                    className="flex items-center justify-center w-9 h-9 rounded-xl border border-slate-200 bg-white text-slate-500 hover:border-orange-300 hover:text-orange-600 transition-all disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:border-slate-200 disabled:hover:text-slate-500"
+                    aria-label="Página siguiente"
+                >
+                    <ChevronRight className="w-4 h-4" />
+                </button>
+            </div>
+
+            {/* Summary */}
+            <p className="text-xs font-medium text-slate-400">
+                Mostrando {startIndex + 1}–{endIndex} de {totalItems} productos
+            </p>
+        </div>
+    );
+}

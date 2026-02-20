@@ -27,9 +27,11 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
     /* Close mobile menu on route change */
+    /* eslint-disable react-hooks/set-state-in-effect */
     useEffect(() => {
         setMobileMenuOpen(false);
     }, [pathname]);
+    /* eslint-enable react-hooks/set-state-in-effect */
 
     useEffect(() => {
         if (!isInitialising && !isAuthenticated) {

@@ -25,11 +25,13 @@ export default function FilterPanelEnhanced({
     const [collapsedCategories, setCollapsedCategories] = useState(false);
     const [showAllWhenSelected, setShowAllWhenSelected] = useState(false);
 
+    /* eslint-disable react-hooks/set-state-in-effect */
     useEffect(() => {
         if (activeCategoryId) {
             setShowAllWhenSelected(false);
         }
     }, [activeCategoryId]);
+    /* eslint-enable react-hooks/set-state-in-effect */
 
     const categoriesWithCount = useMemo(() => {
         return categories.map((cat) => ({
@@ -51,9 +53,8 @@ export default function FilterPanelEnhanced({
         return filteredCategories.filter((cat) => cat.id === activeCategoryId);
     }, [activeCategoryId, filteredCategories, showAllWhenSelected]);
 
-    const panelClassName = `bg-white border-b md:border-b-0 md:border-r border-slate-200 transition-all overflow-hidden md:overflow-y-auto md:sticky md:top-16 md:h-[calc(100vh-64px)] ${
-        isOpen ? 'w-full md:w-72 opacity-100 max-h-[70vh] md:max-h-none' : 'w-0 md:w-0 opacity-0 pointer-events-none max-h-0 md:max-h-none'
-    }`;
+    const panelClassName = `bg-white border-b md:border-b-0 md:border-r border-slate-200 transition-all overflow-hidden md:overflow-y-auto md:sticky md:top-16 md:h-[calc(100vh-64px)] ${isOpen ? 'w-full md:w-72 opacity-100 max-h-[70vh] md:max-h-none' : 'w-0 md:w-0 opacity-0 pointer-events-none max-h-0 md:max-h-none'
+        }`;
 
     return (
         <aside className={panelClassName}>
@@ -93,19 +94,17 @@ export default function FilterPanelEnhanced({
                     <nav className="space-y-1">
                         <button
                             onClick={() => onCategoryChange(null)}
-                            className={`w-full flex items-center justify-between p-2.5 rounded-lg text-sm transition-all ${
-                                !activeCategoryId
-                                    ? 'bg-orange-50 text-orange-700 font-bold'
-                                    : 'hover:bg-slate-50 text-slate-600'
-                            }`}
+                            className={`w-full flex items-center justify-between p-2.5 rounded-lg text-sm transition-all ${!activeCategoryId
+                                ? 'bg-orange-50 text-orange-700 font-bold'
+                                : 'hover:bg-slate-50 text-slate-600'
+                                }`}
                         >
                             <span className="flex items-center gap-3">
                                 <ChevronRight className="w-4 h-4 opacity-50" />
                                 Todas
                             </span>
-                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-                                !activeCategoryId ? 'bg-orange-200 text-orange-800' : 'bg-slate-100 text-slate-400 font-medium'
-                            }`}>
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${!activeCategoryId ? 'bg-orange-200 text-orange-800' : 'bg-slate-100 text-slate-400 font-medium'
+                                }`}>
                                 {products.filter((p) => p.isPublished).length}
                             </span>
                         </button>
@@ -123,13 +122,12 @@ export default function FilterPanelEnhanced({
                                             onCategoryChange(isActive ? null : cat.id);
                                             if (!isActive) setShowAllWhenSelected(false);
                                         }}
-                                        className={`w-full flex items-center justify-between rounded-lg transition-all ${
-                                            isActive
-                                                ? 'bg-orange-50 text-orange-700 font-bold p-2.5 text-sm'
-                                                : isContracted
-                                                    ? 'hover:bg-slate-50 text-slate-500 p-1.5 text-xs opacity-70'
-                                                    : 'hover:bg-slate-50 text-slate-600 p-2.5 text-sm'
-                                        }`}
+                                        className={`w-full flex items-center justify-between rounded-lg transition-all ${isActive
+                                            ? 'bg-orange-50 text-orange-700 font-bold p-2.5 text-sm'
+                                            : isContracted
+                                                ? 'hover:bg-slate-50 text-slate-500 p-1.5 text-xs opacity-70'
+                                                : 'hover:bg-slate-50 text-slate-600 p-2.5 text-sm'
+                                            }`}
                                     >
                                         <span className="flex items-center gap-3">
                                             {isActive ? (
@@ -139,9 +137,8 @@ export default function FilterPanelEnhanced({
                                             )}
                                             {cat.nombre}
                                         </span>
-                                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-                                            isActive ? 'bg-orange-200 text-orange-800' : 'bg-slate-100 text-slate-400 font-medium'
-                                        }`}>
+                                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${isActive ? 'bg-orange-200 text-orange-800' : 'bg-slate-100 text-slate-400 font-medium'
+                                            }`}>
                                             {cat.count}
                                         </span>
                                     </button>

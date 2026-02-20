@@ -222,7 +222,8 @@ export default function ProductDetailView({ product }: ProductDetailViewProps) {
                             if (productData.contenido) cards.push({ label: 'Contenido', value: `${productData.contenido}${productData.unidadMedida ? ' ' + productData.unidadMedida : ''}`, icon: <Info className="w-4 h-4" /> });
                             if (productData.presentacion) cards.push({ label: 'Presentación', value: productData.presentacion });
                             if (productData.pesoKg != null) cards.push({ label: 'Peso', value: `${productData.pesoKg} kg` });
-                            const dims = [productData.altoMm && `${productData.altoMm}mm`, productData.anchoMm && `${productData.anchoMm}mm`, productData.largoMm && `${productData.largoMm}mm`].filter(Boolean).join(' × ');
+                            const dimU = (selectedVariant as any)?.dimensionUnit || 'mm';
+                            const dims = [productData.altoMm && `${productData.altoMm} ${dimU}`, productData.anchoMm && `${productData.anchoMm} ${dimU}`, productData.largoMm && `${productData.largoMm} ${dimU}`].filter(Boolean).join(' × ');
                             if (dims) cards.push({ label: 'Dimensiones', value: dims });
 
                             return cards.length > 0 ? (

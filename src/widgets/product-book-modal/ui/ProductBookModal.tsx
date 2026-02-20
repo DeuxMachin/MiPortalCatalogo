@@ -113,10 +113,11 @@ export default function ProductBookModal({ product, isOpen, onClose }: ProductBo
     }
     if (productData.presentacion) technicalCards.push({ label: 'Presentación', value: productData.presentacion });
     if (productData.pesoKg != null) technicalCards.push({ label: 'Peso', value: `${productData.pesoKg} kg` });
+    const dimU = (selectedVariant as any)?.dimensionUnit || 'mm';
     const dims = [
-        productData.altoMm && `${productData.altoMm}mm`,
-        productData.anchoMm && `${productData.anchoMm}mm`,
-        productData.largoMm && `${productData.largoMm}mm`,
+        productData.altoMm && `${productData.altoMm} ${dimU}`,
+        productData.anchoMm && `${productData.anchoMm} ${dimU}`,
+        productData.largoMm && `${productData.largoMm} ${dimU}`,
     ]
         .filter(Boolean)
         .join(' × ');
@@ -236,8 +237,8 @@ export default function ProductBookModal({ product, isOpen, onClose }: ProductBo
                                             key={idx}
                                             onClick={() => setCurrentImageIndex(idx)}
                                             className={`flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition-all ${idx === currentImageIndex
-                                                    ? 'border-orange-500 shadow-md'
-                                                    : 'border-gray-200 hover:border-orange-300'
+                                                ? 'border-orange-500 shadow-md'
+                                                : 'border-gray-200 hover:border-orange-300'
                                                 }`}
                                         >
                                             <img

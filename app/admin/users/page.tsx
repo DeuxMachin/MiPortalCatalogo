@@ -80,9 +80,11 @@ export default function AdminUsersPage() {
         setUsers((json.items ?? []) as AdminUser[]);
     }, [withAdminToken]);
 
+    /* eslint-disable react-hooks/set-state-in-effect */
     useEffect(() => {
         void loadUsers();
     }, [loadUsers]);
+    /* eslint-enable react-hooks/set-state-in-effect */
 
     const handleCreateAdminUser = async () => {
         setMessage(null);

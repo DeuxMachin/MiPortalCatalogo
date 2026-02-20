@@ -49,6 +49,7 @@ interface VariantInput {
     altoMm: string;
     anchoMm: string;
     largoMm: string;
+    dimensionUnit: string;
     description: string;
     isActive: boolean;
 }
@@ -86,6 +87,7 @@ const DEFAULT_IMAGE = 'https://images.unsplash.com/photo-1504917595217-d4dc5ebe6
 const QUICK_SPECS_DEFAULTS = [{ label: '', value: '' }];
 const CUSTOM_OPTION = '__custom__';
 const MEDIDA_UNITS = ['mm', 'cm', 'm', 'kg', 'g', 'lt', 'ml', 'und'];
+const DIMENSION_UNITS = ['mm', 'cm', 'mts'];
 const FORMATO_OPTIONS = ['Bolsa', 'Bidón', 'Caja', 'Saco', 'Rollo', 'Unidad'];
 const COLOR_OPTIONS = ['Negro', 'Blanco', 'Gris', 'Rojo', 'Azul', 'Verde'];
 const MATERIAL_OPTIONS = ['Plástico', 'Polietileno', 'Cementicio', 'Metal', 'PVC', 'Acrílico'];
@@ -106,8 +108,10 @@ function splitMedida(medida?: string) {
     const raw = (medida ?? '').trim();
     if (!raw) return { value: '', unit: '' };
 
-    // Soporta entradas como: "9,5", "9.5", "9,6 mm", "9.6 mm x ml"
-    const match = raw.match(/^(\d+(?:[\.,]\d+)*)\s*(.*)$/);
+    // Soporta entradas como: "9,5", "9.5", "9,6 mm", "9.6 mm x ml", "9.", "9,"
+    // El trailing [\.,]? permite que "9." o "9," se mantengan como parte del valor numérico
+    // sin ser interpretados erróneamente como unidad.
+    const match = raw.match(/^(\d+(?:[\.,]\d+)*[\.,]?)\s*(.*)$/);
     if (!match || !match[1]) {
         // Si no hay número al inicio, tratamos todo como unidad para no contaminar el campo numérico.
         return { value: '', unit: raw.toLowerCase() };
@@ -195,6 +199,7 @@ function buildFormData(product?: Product): FormData {
             altoMm: 'altoMm' in variant ? (variant.altoMm != null ? String(variant.altoMm) : (product.altoMm != null ? String(product.altoMm) : '')) : (product.altoMm != null ? String(product.altoMm) : ''),
             anchoMm: 'anchoMm' in variant ? (variant.anchoMm != null ? String(variant.anchoMm) : (product.anchoMm != null ? String(product.anchoMm) : '')) : (product.anchoMm != null ? String(product.anchoMm) : ''),
             largoMm: 'largoMm' in variant ? (variant.largoMm != null ? String(variant.largoMm) : (product.largoMm != null ? String(product.largoMm) : '')) : (product.largoMm != null ? String(product.largoMm) : ''),
+            dimensionUnit: (variant as any).dimensionUnit ?? 'mm',
             description: product.description ?? '',
             isActive: variant.isActive ?? index === 0,
         }));
@@ -268,6 +273,7 @@ function buildFormData(product?: Product): FormData {
             altoMm: '',
             anchoMm: '',
             largoMm: '',
+            dimensionUnit: 'mm',
             description: '',
             isActive: true,
         }],
@@ -498,6 +504,7 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
                     altoMm: '',
                     anchoMm: '',
                     largoMm: '',
+                    dimensionUnit: 'mm',
                     description: '',
                     isActive: false,
                 },
@@ -594,10 +601,10 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
 
         const overLimitVariant = form.variants.find((v) => {
             const wc = v.description.trim() ? v.description.trim().split(/\s+/).length : 0;
-            return wc > 500;
+            return wc > 300;
         });
         if (overLimitVariant) {
-            setSaveError('La descripción de uno o más formatos excede las 500 palabras. Reduce el texto antes de guardar.');
+            setSaveError('La descripción de uno o más formatos excede las 300 palabras. Reduce el texto antes de guardar.');
             return;
         }
 
@@ -626,10 +633,12 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
             altoMm: variant.altoMm ? Number(variant.altoMm) : undefined,
             anchoMm: variant.anchoMm ? Number(variant.anchoMm) : undefined,
             largoMm: variant.largoMm ? Number(variant.largoMm) : undefined,
+            dimensionUnit: variant.dimensionUnit || 'mm',
             pesoKg: variant.pesoKg ? Number(variant.pesoKg) : undefined,
             material: variant.material || undefined,
             color: variant.color || undefined,
             contenido: variant.medida || undefined,
+            description: variant.description || undefined,
             specs: specsObj,
             quickSpecs,
             isActive: variant.isActive || index === 0,
@@ -898,33 +907,42 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
                                                     </div>
 
                                                     <div className="space-y-4">
-                                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                                                            <input
-                                                                type="text"
-                                                                value={activeVariant.sku}
-                                                                onChange={(e) => updateVariantField(safeActiveVariantIndex, 'sku', e.target.value)}
-                                                                placeholder="Ej: SEP-CONO-20-BLA"
-                                                                className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                                                            />
-                                                            <div className="relative">
-                                                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-semibold">$</span>
+                                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                                            <div>
+                                                                <label className="block text-[11px] font-medium text-slate-400 mb-1">SKU / Código</label>
                                                                 <input
-                                                                    type="number"
-                                                                    value={activeVariant.price}
-                                                                    onChange={(e) => updateVariantField(safeActiveVariantIndex, 'price', e.target.value)}
-                                                                    placeholder="Ej: 1290"
-                                                                    className="w-full pl-7 pr-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                                                    type="text"
+                                                                    value={activeVariant.sku}
+                                                                    onChange={(e) => updateVariantField(safeActiveVariantIndex, 'sku', e.target.value)}
+                                                                    placeholder="Ej: SEP-CONO-20-BLA"
+                                                                    className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                                                                 />
                                                             </div>
-                                                            <select
-                                                                value={activeVariant.stock}
-                                                                onChange={(e) => updateVariantField(safeActiveVariantIndex, 'stock', e.target.value)}
-                                                                className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white"
-                                                            >
-                                                                {STOCK_OPTIONS.map((opt) => (
-                                                                    <option key={opt} value={opt}>{opt}</option>
-                                                                ))}
-                                                            </select>
+                                                            <div>
+                                                                <label className="block text-[11px] font-medium text-slate-400 mb-1">Precio (CLP)</label>
+                                                                <div className="relative">
+                                                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-semibold">$</span>
+                                                                    <input
+                                                                        type="number"
+                                                                        value={activeVariant.price}
+                                                                        onChange={(e) => updateVariantField(safeActiveVariantIndex, 'price', e.target.value)}
+                                                                        placeholder="Ej: 1290"
+                                                                        className="w-full pl-7 pr-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                            <div>
+                                                                <label className="block text-[11px] font-medium text-slate-400 mb-1">Disponibilidad</label>
+                                                                <select
+                                                                    value={activeVariant.stock}
+                                                                    onChange={(e) => updateVariantField(safeActiveVariantIndex, 'stock', e.target.value)}
+                                                                    className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white"
+                                                                >
+                                                                    {STOCK_OPTIONS.map((opt) => (
+                                                                        <option key={opt} value={opt}>{opt}</option>
+                                                                    ))}
+                                                                </select>
+                                                            </div>
                                                         </div>
 
                                                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
@@ -1108,47 +1126,68 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
                                                             </div>
                                                         </div>
 
-                                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                                                            <div>
-                                                                <label className="block text-xs font-semibold text-slate-500 mb-1">Peso (kg)</label>
-                                                                <input
-                                                                    type="number"
-                                                                    step="0.01"
-                                                                    value={activeVariant.pesoKg}
-                                                                    onChange={(e) => updateVariantField(safeActiveVariantIndex, 'pesoKg', e.target.value)}
-                                                                    placeholder="Ej: 0.5"
-                                                                    className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                                                                />
+                                                        {/* ── Peso y Dimensiones ── */}
+                                                        <div className="bg-slate-50/80 border border-slate-200 rounded-xl p-4">
+                                                            <div className="flex items-center justify-between mb-3">
+                                                                <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Peso y Dimensiones</span>
+                                                                <div className="flex items-center gap-1 bg-white rounded-lg p-0.5 border border-slate-200">
+                                                                    {DIMENSION_UNITS.map((u) => (
+                                                                        <button
+                                                                            key={u}
+                                                                            type="button"
+                                                                            onClick={() => updateVariantField(safeActiveVariantIndex, 'dimensionUnit', u)}
+                                                                            className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all ${activeVariant.dimensionUnit === u
+                                                                                ? 'bg-orange-100 text-orange-600'
+                                                                                : 'text-slate-400 hover:text-slate-600'
+                                                                                }`}
+                                                                        >
+                                                                            {u}
+                                                                        </button>
+                                                                    ))}
+                                                                </div>
                                                             </div>
-                                                            <div>
-                                                                <label className="block text-xs font-semibold text-slate-500 mb-1">Alto (mm)</label>
-                                                                <input
-                                                                    type="number"
-                                                                    value={activeVariant.altoMm}
-                                                                    onChange={(e) => updateVariantField(safeActiveVariantIndex, 'altoMm', e.target.value)}
-                                                                    placeholder="Ej: 200"
-                                                                    className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                                                                />
-                                                            </div>
-                                                            <div>
-                                                                <label className="block text-xs font-semibold text-slate-500 mb-1">Ancho (mm)</label>
-                                                                <input
-                                                                    type="number"
-                                                                    value={activeVariant.anchoMm}
-                                                                    onChange={(e) => updateVariantField(safeActiveVariantIndex, 'anchoMm', e.target.value)}
-                                                                    placeholder="Ej: 50"
-                                                                    className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                                                                />
-                                                            </div>
-                                                            <div>
-                                                                <label className="block text-xs font-semibold text-slate-500 mb-1">Largo (mm)</label>
-                                                                <input
-                                                                    type="number"
-                                                                    value={activeVariant.largoMm}
-                                                                    onChange={(e) => updateVariantField(safeActiveVariantIndex, 'largoMm', e.target.value)}
-                                                                    placeholder="Ej: 300"
-                                                                    className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                                                                />
+                                                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                                                <div>
+                                                                    <label className="block text-[11px] font-medium text-slate-400 mb-1">Peso (kg)</label>
+                                                                    <input
+                                                                        type="number"
+                                                                        step="0.01"
+                                                                        value={activeVariant.pesoKg}
+                                                                        onChange={(e) => updateVariantField(safeActiveVariantIndex, 'pesoKg', e.target.value)}
+                                                                        placeholder="0.5"
+                                                                        className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                                                    />
+                                                                </div>
+                                                                <div>
+                                                                    <label className="block text-[11px] font-medium text-slate-400 mb-1">Alto ({activeVariant.dimensionUnit})</label>
+                                                                    <input
+                                                                        type="number"
+                                                                        value={activeVariant.altoMm}
+                                                                        onChange={(e) => updateVariantField(safeActiveVariantIndex, 'altoMm', e.target.value)}
+                                                                        placeholder="200"
+                                                                        className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                                                    />
+                                                                </div>
+                                                                <div>
+                                                                    <label className="block text-[11px] font-medium text-slate-400 mb-1">Ancho ({activeVariant.dimensionUnit})</label>
+                                                                    <input
+                                                                        type="number"
+                                                                        value={activeVariant.anchoMm}
+                                                                        onChange={(e) => updateVariantField(safeActiveVariantIndex, 'anchoMm', e.target.value)}
+                                                                        placeholder="50"
+                                                                        className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                                                    />
+                                                                </div>
+                                                                <div>
+                                                                    <label className="block text-[11px] font-medium text-slate-400 mb-1">Largo ({activeVariant.dimensionUnit})</label>
+                                                                    <input
+                                                                        type="number"
+                                                                        value={activeVariant.largoMm}
+                                                                        onChange={(e) => updateVariantField(safeActiveVariantIndex, 'largoMm', e.target.value)}
+                                                                        placeholder="300"
+                                                                        className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                                                    />
+                                                                </div>
                                                             </div>
                                                         </div>
 
@@ -1163,12 +1202,12 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
                                                             />
                                                             {(() => {
                                                                 const wordCount = activeVariant.description.trim() ? activeVariant.description.trim().split(/\s+/).length : 0;
-                                                                const isOver = wordCount > 500;
-                                                                const isNear = wordCount > 450 && wordCount <= 500;
+                                                                const isOver = wordCount > 300;
+                                                                const isNear = wordCount > 250 && wordCount <= 300;
                                                                 return (
                                                                     <div className="flex items-center justify-between mt-1.5">
                                                                         <p className={`text-xs font-semibold ${isOver ? 'text-red-600' : isNear ? 'text-amber-600' : 'text-slate-400'}`}>
-                                                                            {wordCount} / 500 palabras
+                                                                            {wordCount} / 300 palabras
                                                                         </p>
                                                                         {isOver && (
                                                                             <p className="text-xs font-semibold text-red-600">
@@ -1610,7 +1649,8 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
                         if (currentMeasure) rows.push({ key: 'Medida', value: currentMeasure });
                         if (currentFormat) rows.push({ key: 'Formato', value: currentFormat });
                         if (previewVariant?.pesoKg) rows.push({ key: 'Peso', value: `${previewVariant.pesoKg} kg` });
-                        const dims = [previewVariant?.altoMm && `${previewVariant.altoMm}mm`, previewVariant?.anchoMm && `${previewVariant.anchoMm}mm`, previewVariant?.largoMm && `${previewVariant.largoMm}mm`].filter(Boolean).join(' × ');
+                        const dimUnit = previewVariant?.dimensionUnit || 'mm';
+                        const dims = [previewVariant?.altoMm && `${previewVariant.altoMm} ${dimUnit}`, previewVariant?.anchoMm && `${previewVariant.anchoMm} ${dimUnit}`, previewVariant?.largoMm && `${previewVariant.largoMm} ${dimUnit}`].filter(Boolean).join(' × ');
                         if (dims) rows.push({ key: 'Dimensiones', value: dims });
                         filledSpecs.forEach((s) => rows.push(s));
 

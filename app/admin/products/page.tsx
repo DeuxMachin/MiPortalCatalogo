@@ -39,6 +39,7 @@ export default function AdminProductsPage() {
     const visibleToast = toast ?? queryToast;
 
     // Reset page when filters change
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     useEffect(() => { setCurrentPage(1); }, [searchQuery, categoryFilter]);
 
     const filtered = products.filter((p) => {
