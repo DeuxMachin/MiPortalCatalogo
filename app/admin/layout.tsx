@@ -60,7 +60,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             <aside className="hidden lg:flex flex-col w-64 bg-white border-r border-gray-200 flex-shrink-0 lg:sticky lg:top-0 lg:h-screen lg:overflow-y-auto">
                 {/* Logo */}
                 <div className="p-5 border-b border-gray-100">
-                    <Logo size="md" showText onClick={() => router.push('/catalog')} />
+                    <Logo size="md" onClick={() => router.push('/catalog')} />
                     <p className="text-xs text-slate-400 mt-1.5 font-medium">Panel de Administración</p>
                 </div>
 
@@ -113,7 +113,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
             {/* Mobile top bar */}
             <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
-                <Logo size="sm" showText onClick={() => router.push('/catalog')} />
+                <Logo size="sm" onClick={() => router.push('/catalog')} />
                 <div className="flex items-center gap-2">
                     <button
                         onClick={() => setMobileMenuOpen(true)}

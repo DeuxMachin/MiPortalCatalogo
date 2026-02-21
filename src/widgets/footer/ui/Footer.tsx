@@ -9,7 +9,7 @@ export default function Footer() {
             <div className="max-w-7xl mx-auto px-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                     <div className="space-y-4">
-                        <Logo size="md" showText={false} />
+                        <Logo size="md" />
                         <p className="font-bold text-white text-lg">{APP_NAME}</p>
                         <p className="text-sm text-slate-400 leading-relaxed">
                             {APP_TAGLINE}. Información técnica clara y actualizada para productos de construcción.

@@ -1,0 +1,12 @@
+{
+    "rewrites": [
+        {
+            "source": "/mantencion",
+            "destination": "/mantencion"
+        },
+        {
+            "source": "/((?!mantencion|_next|api|favicon.ico|logo.webp).*)",
+            "destination": "/mantencion"
+        }
+    ]
+}

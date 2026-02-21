@@ -47,7 +47,7 @@ export default function Header() {
             <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
                 {/* Logo + Nav */}
                 <div className="flex items-center gap-6">
-                    <Logo size="md" showText onClick={() => navigateTo('/catalog')} />
+                    <Logo size="md" onClick={() => navigateTo('/catalog')} />
                     <nav className="hidden lg:flex items-center gap-1">
                         <Link
                             href="/catalog"
