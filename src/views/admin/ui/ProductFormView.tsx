@@ -41,6 +41,7 @@ interface VariantInput {
     sku: string;
     price: string;
     stock: StockStatus;
+    formatName: string;
     presentacion: string;
     medida: string;
     color: string;
@@ -191,6 +192,7 @@ function buildFormData(product?: Product): FormData {
             sku: variant.sku ?? '',
             price: String(variant.price ?? 0),
             stock: variant.stock ?? 'EN STOCK',
+            formatName: (variant as any).formatName ?? '',
             presentacion: variant.presentacion ?? '',
             medida: variant.medida ?? ('contenido' in variant ? (variant.contenido ?? '') : ''),
             color: 'color' in variant ? (variant.color ?? product.color ?? '') : (product.color ?? ''),
@@ -265,6 +267,7 @@ function buildFormData(product?: Product): FormData {
             sku: '',
             price: '',
             stock: 'EN STOCK',
+            formatName: '',
             presentacion: '',
             medida: '',
             color: '',
@@ -496,6 +499,7 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
                     sku: '',
                     price: '',
                     stock: 'EN STOCK',
+                    formatName: '',
                     presentacion: '',
                     medida: '',
                     color: '',
@@ -628,6 +632,7 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
             price: Number(variant.price) || 0,
             unit: 'CLP',
             stock: variant.stock,
+            formatName: variant.formatName.trim() || undefined,
             medida: variant.medida || undefined,
             presentacion: variant.presentacion || undefined,
             altoMm: variant.altoMm ? Number(variant.altoMm) : undefined,
@@ -904,6 +909,23 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
                                                         <span className={`text-xs font-bold uppercase tracking-wide ${activeVariant.isActive ? 'text-orange-600' : 'text-slate-500'}`}>
                                                             {activeVariant.isActive ? '★ Formato principal' : `Formato ${safeActiveVariantIndex + 1}`}
                                                         </span>
+                                                    </div>
+
+                                                    {/* Nombre del formato */}
+                                                    <div className="mb-4">
+                                                        <label className="block text-xs font-semibold text-slate-500 mb-1">Nombre del formato</label>
+                                                        <input
+                                                            type="text"
+                                                            value={activeVariant.formatName || ""}
+                                                            onChange={(e) => {
+                                                                const val = e.target.value;
+                                                                if (val.length <= 30) updateVariantField(safeActiveVariantIndex, 'formatName', val);
+                                                            }}
+                                                            maxLength={30}
+                                                            placeholder="Ej: Bolsa 25kg, Bidón 20L"
+                                                            className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                                        />
+                                                        <p className="text-[10px] text-slate-400 mt-1">{(activeVariant.formatName || "").length}/30 caracteres</p>
                                                     </div>
 
                                                     <div className="space-y-4">
@@ -1610,7 +1632,7 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
                                             : 'border-slate-200 text-slate-500 hover:border-slate-300'
                                             }`}
                                     >
-                                        {variant.medida || `Formato ${index + 1}`}
+                                        {variant.formatName || variant.medida || `Formato ${index + 1}`}
                                     </button>
                                 ))}
                             </div>

@@ -21,6 +21,8 @@ export interface ProductVariant {
     price: number;
     unit: string;
     stock: StockStatus;
+    /** Nombre personalizado del formato (máx 30 caracteres). */
+    formatName?: string;
     medida?: string;
     presentacion?: string;
     unidadVenta?: string;

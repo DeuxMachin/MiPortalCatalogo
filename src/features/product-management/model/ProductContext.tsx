@@ -144,6 +144,7 @@ function mapRowToProduct(row: any, resolveImageUrl: (pathOrUrl: string) => strin
             price: Number(variant.precio ?? 0),
             unit: String(variant.moneda ?? 'CLP'),
             stock: normalizeVariantStock(variant.estado_stock),
+            formatName: variant.nombre_formato ?? undefined,
             medida: variant.medida ?? undefined,
             presentacion: variant.presentacion ?? undefined,
             unidadVenta: variant.unidad_venta ?? undefined,
@@ -506,6 +507,7 @@ export function ProductProvider({ children }: { children: ReactNode }) {
                         precio: Number(variant.price ?? 0),
                         moneda: variant.unit ?? 'CLP',
                         estado_stock: variant.stock ?? 'EN STOCK',
+                        nombre_formato: (variant as any).formatName ?? null,
                         medida: variant.medida ?? null,
                         presentacion: variant.presentacion ?? null,
                         unidad_venta: variant.unidadVenta ?? null,
@@ -526,7 +528,7 @@ export function ProductProvider({ children }: { children: ReactNode }) {
 
                 const { data: previousRows, error: previousErr } = await sb.current
                     .from('producto_variantes')
-                    .select('sku, precio, moneda, estado_stock, medida, presentacion, unidad_venta, alto_mm, ancho_mm, largo_mm, peso_kg, material, color, contenido, especificacion_variada, quick_specs, activo')
+                    .select('sku, precio, moneda, estado_stock, nombre_formato, medida, presentacion, unidad_venta, alto_mm, ancho_mm, largo_mm, peso_kg, material, color, contenido, especificacion_variada, quick_specs, activo')
                     .eq('producto_id', productId);
 
                 if (previousErr) {
@@ -539,6 +541,7 @@ export function ProductProvider({ children }: { children: ReactNode }) {
                     precio: row.precio,
                     moneda: row.moneda,
                     estado_stock: row.estado_stock,
+                    nombre_formato: row.nombre_formato,
                     medida: row.medida,
                     presentacion: row.presentacion,
                     unidad_venta: row.unidad_venta,

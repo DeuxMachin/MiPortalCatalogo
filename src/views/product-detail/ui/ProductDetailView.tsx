@@ -116,7 +116,7 @@ export default function ProductDetailView({ product }: ProductDetailViewProps) {
                                     const labelParts = [variant.presentacion, variant.medida].filter(Boolean);
                                     return (
                                         <option key={variant.id} value={variant.id}>
-                                            {labelParts.join(' · ') || `Formato ${variant.id.slice(0, 6)}`}
+                                            {(variant as any).formatName || labelParts.join(' · ') || `Formato ${variant.id.slice(0, 6)}`}
                                         </option>
                                     );
                                 })}
