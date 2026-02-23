@@ -5,9 +5,9 @@ import { NextResponse, type NextRequest } from 'next/server';
 // │  Cambiar a `true` para activar mantención.     │
 // │  Cambiar a `false` para desactivar.            │
 // └─────────────────────────────────────────────────┘
-const MAINTENANCE_MODE = true;
+const MAINTENANCE_MODE = false;
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
     if (!MAINTENANCE_MODE) return NextResponse.next();
 
     const { pathname } = request.nextUrl;
