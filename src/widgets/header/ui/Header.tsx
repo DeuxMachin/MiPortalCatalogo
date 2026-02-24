@@ -19,7 +19,7 @@ export default function Header() {
     const [mobileCatOpen, setMobileCatOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
 
-    const isAdmin = user?.role === 'admin';
+    const isAdmin = user?.role === 'admin' || user?.role === 'owner';
 
     useEffect(() => {
         const handler = (e: MouseEvent) => {

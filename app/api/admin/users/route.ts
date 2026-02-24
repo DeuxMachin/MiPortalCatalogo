@@ -8,6 +8,7 @@ type CreateAdminUserBody = {
     email?: string;
     password?: string;
     nombre?: string;
+    rol?: 'admin' | 'owner';
 };
 
 type UpdateAdminUserBody = {
@@ -15,6 +16,7 @@ type UpdateAdminUserBody = {
     nombre?: string;
     email?: string;
     password?: string;
+    rol?: 'admin' | 'owner';
     action?: 'disable' | 'enable' | 'update';
 };
 
@@ -64,6 +66,9 @@ export async function GET(request: Request) {
     const auth = await requireAdminFromBearerToken(request.headers.get('authorization'));
     if (!auth.ok) {
         return NextResponse.json({ ok: false, reason: auth.reason }, { status: auth.status });
+    }
+    if (auth.actor.role !== 'owner') {
+        return NextResponse.json({ ok: false, reason: 'Acceso denegado: solo owners.' }, { status: 403 });
     }
 
     let supabase;
@@ -138,6 +143,9 @@ export async function POST(request: Request) {
     if (!auth.ok) {
         return NextResponse.json({ ok: false, reason: auth.reason }, { status: auth.status });
     }
+    if (auth.actor.role !== 'owner') {
+        return NextResponse.json({ ok: false, reason: 'Acceso denegado: solo owners.' }, { status: 403 });
+    }
 
     let body: CreateAdminUserBody;
     try {
@@ -186,12 +194,13 @@ export async function POST(request: Request) {
     }
 
     const newUserId = createdUser.user.id;
+    const nextRol = body.rol === 'owner' ? 'owner' : 'admin';
 
     const { error: profileError } = await supabase
         .from('perfiles')
         .upsert({
             id: newUserId,
-            rol: 'admin',
+            rol: nextRol,
             nombre: nombre || email.split('@')[0],
         });
 
@@ -202,7 +211,7 @@ export async function POST(request: Request) {
         );
     }
 
-    await writeAudit(auth.actor, 'auth.users', newUserId, `CREAR usuario admin ${email}`, 'CREAR');
+    await writeAudit(auth.actor, 'auth.users', newUserId, `CREAR usuario ${nextRol} ${email}`, 'CREAR');
 
     return NextResponse.json(
         {
@@ -211,7 +220,7 @@ export async function POST(request: Request) {
                 id: newUserId,
                 email,
                 nombre: nombre || email.split('@')[0],
-                rol: 'admin',
+                rol: nextRol,
             },
         },
         { status: 201 },
@@ -222,6 +231,9 @@ export async function PATCH(request: Request) {
     const auth = await requireAdminFromBearerToken(request.headers.get('authorization'));
     if (!auth.ok) {
         return NextResponse.json({ ok: false, reason: auth.reason }, { status: auth.status });
+    }
+    if (auth.actor.role !== 'owner') {
+        return NextResponse.json({ ok: false, reason: 'Acceso denegado: solo owners.' }, { status: 403 });
     }
 
     let body: UpdateAdminUserBody;
@@ -278,6 +290,7 @@ export async function PATCH(request: Request) {
     const nextEmail = body.email?.trim().toLowerCase();
     const nextPassword = body.password ?? '';
     const nextNombre = body.nombre?.trim();
+    const nextRol = body.rol;
 
     if (nextEmail) {
         if (!isValidEmail(nextEmail)) {
@@ -305,10 +318,14 @@ export async function PATCH(request: Request) {
         }
     }
 
-    if (nextNombre) {
+    if (nextNombre || nextRol) {
+        const updateData: any = {};
+        if (nextNombre) updateData.nombre = nextNombre;
+        if (nextRol) updateData.rol = nextRol;
+
         await supabase
             .from('perfiles')
-            .update({ nombre: nextNombre })
+            .update(updateData)
             .eq('id', id);
     }
 
@@ -320,6 +337,9 @@ export async function DELETE(request: Request) {
     const auth = await requireAdminFromBearerToken(request.headers.get('authorization'));
     if (!auth.ok) {
         return NextResponse.json({ ok: false, reason: auth.reason }, { status: auth.status });
+    }
+    if (auth.actor.role !== 'owner') {
+        return NextResponse.json({ ok: false, reason: 'Acceso denegado: solo owners.' }, { status: 403 });
     }
 
     const url = new URL(request.url);

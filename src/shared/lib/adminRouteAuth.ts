@@ -3,6 +3,7 @@ import { getSupabaseAdminClient } from '@/src/shared/lib/supabaseAdmin';
 export interface AdminActor {
     id: string;
     email: string;
+    role: 'admin' | 'owner';
 }
 
 export interface AdminAuthSuccess {
@@ -43,8 +44,8 @@ export async function requireAdminFromBearerToken(
         return { ok: false, status: 500, reason: 'No se pudo validar el perfil del usuario.' };
     }
 
-    if (!profile || profile.rol !== 'admin') {
-        return { ok: false, status: 403, reason: 'Acceso denegado: solo administradores.' };
+    if (!profile || !['admin', 'owner'].includes(profile.rol)) {
+        return { ok: false, status: 403, reason: 'Acceso denegado: solo administradores u owners.' };
     }
 
     return {
@@ -52,6 +53,7 @@ export async function requireAdminFromBearerToken(
         actor: {
             id: actorId,
             email: actorEmail,
+            role: profile.rol as 'admin' | 'owner',
         },
         accessToken,
     };

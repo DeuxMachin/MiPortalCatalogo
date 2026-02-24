@@ -11,13 +11,14 @@ interface AdminNavItem {
     label: string;
     href: string;
     icon: typeof Package;
+    requireOwner?: boolean;
 }
 
 const ADMIN_NAV: AdminNavItem[] = [
     { label: 'Categorías', href: '/admin/categories', icon: Layers },
     { label: 'Productos', href: '/admin/products', icon: Package },
-    { label: 'Historial', href: '/admin/history', icon: History },
-    { label: 'Usuarios', href: '/admin/users', icon: UserPlus },
+    { label: 'Historial', href: '/admin/history', icon: History, requireOwner: true },
+    { label: 'Usuarios', href: '/admin/users', icon: UserPlus, requireOwner: true },
 ];
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
@@ -67,6 +68,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                 {/* Nav */}
                 <nav className="flex-1 p-3 space-y-1">
                     {ADMIN_NAV.map((item) => {
+                        if (item.requireOwner && user?.role !== 'owner') return null;
                         const Icon = item.icon;
                         const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
                         const cls = `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all
@@ -153,6 +155,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                         {/* Nav */}
                         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
                             {ADMIN_NAV.map((item) => {
+                                if (item.requireOwner && user?.role !== 'owner') return null;
                                 const Icon = item.icon;
                                 const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
                                 return (

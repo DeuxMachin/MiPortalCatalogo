@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, History, RefreshCw, Search } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/src/features/auth';
 import { getSupabaseBrowserClient } from '@/src/shared/lib/supabase';
 
 const PAGE_SIZE = 30;
@@ -23,6 +25,15 @@ export default function AdminHistoryPage() {
     const [error, setError] = useState<string | null>(null);
     const [query, setQuery] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
+
+    const { user, isInitialising } = useAuth();
+    const router = useRouter();
+
+    useEffect(() => {
+        if (!isInitialising && user && user.role !== 'owner') {
+            router.replace('/admin/products');
+        }
+    }, [user, isInitialising, router]);
 
     // Reset page on search change
     // eslint-disable-next-line react-hooks/set-state-in-effect

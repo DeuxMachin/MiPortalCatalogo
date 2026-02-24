@@ -16,6 +16,8 @@ import {
     AlertTriangle,
     X,
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/src/features/auth';
 import { getSupabaseBrowserClient } from '@/src/shared/lib/supabase';
 
 type AdminUser = {
@@ -40,15 +42,26 @@ export default function AdminUsersPage() {
     const [users, setUsers] = useState<AdminUser[]>([]);
     const [filter, setFilter] = useState<'todos' | 'activo' | 'deshabilitado' | 'eliminado'>('todos');
     const [query, setQuery] = useState('');
+    const [rol, setRol] = useState<'admin' | 'owner'>('admin');
     const [editingUser, setEditingUser] = useState<AdminUser | null>(null);
     const [editNombre, setEditNombre] = useState('');
     const [editEmail, setEditEmail] = useState('');
     const [editPassword, setEditPassword] = useState('');
     const [editConfirmPassword, setEditConfirmPassword] = useState('');
+    const [editRol, setEditRol] = useState<'admin' | 'owner'>('admin');
     const [showEditPassword, setShowEditPassword] = useState(false);
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
     const [confirmAction, setConfirmAction] = useState<{ user: AdminUser; action: 'disable' | 'enable' | 'delete' } | null>(null);
+
+    const { user: authUser, isInitialising } = useAuth();
+    const router = useRouter();
+
+    useEffect(() => {
+        if (!isInitialising && authUser && authUser.role !== 'owner') {
+            router.replace('/admin/products');
+        }
+    }, [authUser, isInitialising, router]);
 
     const withAdminToken = useCallback(async () => {
         const sb = getSupabaseBrowserClient();
@@ -124,6 +137,7 @@ export default function AdminUsersPage() {
                 nombre: nombre.trim(),
                 email: email.trim(),
                 password,
+                rol,
             }),
         });
 
@@ -140,6 +154,7 @@ export default function AdminUsersPage() {
         setEmail('');
         setPassword('');
         setConfirmPassword('');
+        setRol('admin');
         setShowCreatePanel(false);
         setMessage({ type: 'success', text: 'Usuario administrador creado correctamente.' });
         void loadUsers();
@@ -149,6 +164,7 @@ export default function AdminUsersPage() {
         setEditingUser(user);
         setEditNombre(user.nombre || '');
         setEditEmail(user.email || '');
+        setEditRol(user.rol as 'admin' | 'owner');
         setEditPassword('');
         setEditConfirmPassword('');
         setShowEditPassword(false);
@@ -182,6 +198,7 @@ export default function AdminUsersPage() {
                 nombre: editNombre.trim(),
                 email: editEmail.trim(),
                 password: editPassword,
+                rol: editRol,
             }),
         });
 
@@ -358,6 +375,7 @@ export default function AdminUsersPage() {
                                         <p className="text-sm font-semibold text-slate-800 truncate">{user.nombre}</p>
                                         <p className="text-xs text-slate-500 truncate">{user.email}</p>
                                         <div className="flex items-center gap-2 mt-2 flex-wrap">
+                                            <span className="text-[11px] font-semibold px-2 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200 uppercase">{user.rol}</span>
                                             <UserStateBadge estado={user.estado} />
                                             <span className="text-[11px] text-slate-500">Creado: {formatDate(user.createdAt)}</span>
                                             <span className="text-[11px] text-slate-500">Último acceso: {formatDate(user.lastSignInAt)}</span>
@@ -485,6 +503,18 @@ export default function AdminUsersPage() {
                             </div>
                         </div>
 
+                        <div>
+                            <label className="block text-xs font-semibold text-slate-500 mb-1.5">Rol</label>
+                            <select
+                                value={rol}
+                                onChange={(event) => setRol(event.target.value as 'admin' | 'owner')}
+                                className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 bg-white"
+                            >
+                                <option value="admin">Administrador</option>
+                                <option value="owner">Owner</option>
+                            </select>
+                        </div>
+
                         <div className="pt-1">
                             <button
                                 type="button"
@@ -558,6 +588,18 @@ export default function AdminUsersPage() {
                                     className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
                                 />
                             </div>
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-semibold text-slate-500 mb-1">Rol</label>
+                            <select
+                                value={editRol}
+                                onChange={(event) => setEditRol(event.target.value as 'admin' | 'owner')}
+                                className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 bg-white"
+                            >
+                                <option value="admin">Administrador</option>
+                                <option value="owner">Owner</option>
+                            </select>
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">

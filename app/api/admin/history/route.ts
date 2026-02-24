@@ -10,6 +10,9 @@ export async function GET(request: Request) {
     if (!auth.ok) {
         return NextResponse.json({ ok: false, reason: auth.reason }, { status: auth.status });
     }
+    if (auth.actor.role !== 'owner') {
+        return NextResponse.json({ ok: false, reason: 'Acceso denegado: solo owners.' }, { status: 403 });
+    }
 
     const url = new URL(request.url);
     const limitRaw = Number(url.searchParams.get('limit') ?? 50);
