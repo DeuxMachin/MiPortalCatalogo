@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { reportError } from '@/src/shared/lib/errorTracking';
 
-export type AdminAuditAction = 'CREAR' | 'ELIMINAR';
+export type AdminAuditAction = 'CREAR' | 'EDITAR' | 'ELIMINAR';
 
 export interface AdminAuditInput {
     action: AdminAuditAction;

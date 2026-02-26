@@ -55,7 +55,7 @@ export class SupabaseCategoryRepository implements CategoryRepository {
                 : 'EDITAR categoría';
 
             await logAdminAudit(this.supabase, {
-                action: 'CREAR',
+                action: 'EDITAR',
                 table: 'categorias',
                 recordId: id,
                 description: detail,

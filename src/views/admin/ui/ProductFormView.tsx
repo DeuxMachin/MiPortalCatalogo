@@ -24,6 +24,12 @@ import { useCategories } from '@/src/features/category-management';
 import type { Product } from '@/src/entities/product/model/types';
 import type { StockStatus } from '@/src/shared/types/common';
 import { formatPrice } from '@/src/shared/lib/formatters';
+import {
+    IMAGE_POLICY_MAX_COUNT,
+    IMAGE_POLICY_MAX_BYTES_LABEL,
+    IMAGE_POLICY_ALLOWED_EXTENSIONS_LABEL,
+    validateSingleImageFile,
+} from '@/src/features/product-management/domain/imagePolicy';
 
 /* ─── Types ─── */
 
@@ -168,8 +174,8 @@ function getSelectValue(value: string, options: string[]) {
 
 function buildFormData(product?: Product): FormData {
     if (product) {
-        const initialUrls = (product.images ?? []).slice(0, 4);
-        const images = Array.from({ length: 4 }).map((_, idx) => ({
+        const initialUrls = (product.images ?? []).slice(0, IMAGE_POLICY_MAX_COUNT);
+        const images = Array.from({ length: IMAGE_POLICY_MAX_COUNT }).map((_, idx) => ({
             url: initialUrls[idx] ?? '',
             file: null,
             crop: { zoom: 1, offsetX: 0, offsetY: 0 },
@@ -244,8 +250,6 @@ function buildFormData(product?: Product): FormData {
         images: [
             { url: DEFAULT_IMAGE, file: null, crop: { zoom: 1, offsetX: 0, offsetY: 0 } },
             { url: '', file: null, crop: { zoom: 1, offsetX: 0, offsetY: 0 } },
-            { url: '', file: null, crop: { zoom: 1, offsetX: 0, offsetY: 0 } },
-            { url: '', file: null, crop: { zoom: 1, offsetX: 0, offsetY: 0 } },
         ],
         isPublished: true,
         precioVisible: true,
@@ -307,6 +311,7 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
     const [activeImageSlot, setActiveImageSlot] = useState(0);
     const [activePreviewImageIdx, setActivePreviewImageIdx] = useState(0);
     const [editorImageExpanded, setEditorImageExpanded] = useState(false);
+    const [imageErrors, setImageErrors] = useState<Record<number, string[]>>({});
 
     const { categories } = useCategories();
     const categoryName = categories.find((c) => c.id === form.categoryId)?.nombre ?? '';
@@ -346,6 +351,19 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
     };
 
     const updateImageFile = (index: number, file: File | null) => {
+        // Validar contra la política antes de aceptar el archivo.
+        if (file) {
+            const errors = validateSingleImageFile({
+                name: file.name,
+                size: file.size,
+                type: file.type,
+            });
+            setImageErrors((prev) => ({ ...prev, [index]: errors }));
+            if (errors.length > 0) return; // No actualizar el slot si hay error.
+        } else {
+            setImageErrors((prev) => { const next = { ...prev }; delete next[index]; return next; });
+        }
+
         setForm((prev) => {
             const images = [...prev.images];
             const prevUrl = images[index]?.url ?? '';
@@ -395,7 +413,7 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
 
     const moveImage = (index: number, direction: -1 | 1) => {
         const next = index + direction;
-        if (next < 0 || next > 3) return;
+        if (next < 0 || next > IMAGE_POLICY_MAX_COUNT - 1) return;
         swapImages(index, next);
         setActivePreviewImageIdx(next);
     };
@@ -1299,208 +1317,224 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
                 {/* ────── IMÁGENES TAB ────── */}
                 {formTab === 'images' && (
                     <div className="p-5 sm:p-7 space-y-5">
-                        {/* Thumbnail strip */}
-                        <div className="grid grid-cols-4 gap-3">
-                            {form.images.map((img, idx) => {
-                                const hasContent = !!(img.url || img.file);
-                                return (
-                                    <button
-                                        key={idx}
-                                        type="button"
-                                        onClick={() => setActiveImageSlot(idx)}
-                                        className={`aspect-square rounded-2xl overflow-hidden border-2 relative transition-all ${idx === activeImageSlot
-                                            ? 'border-orange-500 shadow-md shadow-orange-500/20'
-                                            : 'border-gray-200 hover:border-orange-300'
-                                            }`}
-                                    >
-                                        {hasContent ? (
-                                            <img
-                                                src={imagePreviews[idx] || DEFAULT_IMAGE}
-                                                alt={`Miniatura ${idx + 1}`}
-                                                className="w-full h-full object-contain bg-slate-100"
-                                                loading="lazy"
-                                            />
-                                        ) : (
-                                            <div className="w-full h-full flex items-center justify-center text-slate-300 bg-slate-50">
-                                                <Upload className="w-5 h-5" />
-                                            </div>
-                                        )}
-                                        {idx === 0 && (
-                                            <span className="absolute top-1 left-1 text-[10px] font-bold px-1.5 py-0.5 rounded bg-orange-600 text-white shadow">P</span>
-                                        )}
-                                    </button>
-                                );
-                            })}
+
+                        {/* ── Policy banner compact ── */}
+                        <div className="flex items-center gap-2 bg-blue-50 border border-blue-100 rounded-xl px-3 py-2 text-xs text-blue-700">
+                            <Info className="w-3.5 h-3.5 shrink-0" />
+                            <span>
+                                <span className="font-bold">Máx. {IMAGE_POLICY_MAX_COUNT} imágenes</span>
+                                {' · '}<span className="font-bold">{IMAGE_POLICY_MAX_BYTES_LABEL}</span> por archivo
+                                {' · '}{IMAGE_POLICY_ALLOWED_EXTENSIONS_LABEL}
+                                {' · '}Convertidas a WebP 1200×900 px
+                            </span>
                         </div>
 
-                        {/* Main preview */}
-                        <div className="aspect-[16/10] rounded-2xl overflow-hidden bg-slate-100 border border-gray-200 relative">
-                            {imgSlotHasContent ? (
-                                <img
-                                    src={imagePreviews[activeImageSlot] || DEFAULT_IMAGE}
-                                    alt={`Imagen ${activeImageSlot + 1}`}
-                                    className="absolute inset-0 w-full h-full object-contain bg-slate-100"
-                                    style={{
-                                        transform: `translate(${((imgSlot?.crop.offsetX ?? 0) * 18).toFixed(2)}%, ${((imgSlot?.crop.offsetY ?? 0) * 18).toFixed(2)}%) scale(${imgSlot?.crop.zoom ?? 1})`,
-                                        transformOrigin: 'center',
-                                    }}
-                                    loading="lazy"
-                                    onDoubleClick={() => setEditorImageExpanded(true)}
-                                />
-                            ) : (
-                                <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-300">
-                                    <Upload className="w-10 h-10 mb-2" />
-                                    <span className="text-sm font-medium">Sin imagen</span>
+                        {/* ── Error alerts ── */}
+                        {Object.values(imageErrors).some((e) => e.length > 0) && (
+                            <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 space-y-0.5">
+                                {Object.entries(imageErrors).flatMap(([, errs]) =>
+                                    errs.map((err, i) => (
+                                        <p key={i} className="text-xs font-semibold text-red-600">{err}</p>
+                                    )),
+                                )}
+                            </div>
+                        )}
+
+                        {/* ── Two-up layout: slot selector + active editor ── */}
+                        <div className="flex flex-col sm:flex-row gap-4">
+
+                            {/* Slot selector column */}
+                            <div className="flex sm:flex-col gap-3 sm:w-24 shrink-0">
+                                {form.images.map((img, idx) => {
+                                    const hasContent = !!(img.url || img.file);
+                                    const isActive = idx === activeImageSlot;
+                                    return (
+                                        <button
+                                            key={idx}
+                                            type="button"
+                                            onClick={() => setActiveImageSlot(idx)}
+                                            className={`relative aspect-square rounded-2xl overflow-hidden border-2 flex-1 sm:flex-none sm:w-full transition-all ${isActive
+                                                ? 'border-orange-500 shadow-lg shadow-orange-500/20'
+                                                : 'border-gray-200 hover:border-orange-300'
+                                                }`}
+                                        >
+                                            {hasContent ? (
+                                                <img
+                                                    src={imagePreviews[idx] || DEFAULT_IMAGE}
+                                                    alt={`Imagen ${idx + 1}`}
+                                                    className="w-full h-full object-contain bg-slate-100"
+                                                    loading="lazy"
+                                                />
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center bg-slate-50 text-slate-300">
+                                                    <Upload className="w-4 h-4" />
+                                                </div>
+                                            )}
+                                            {idx === 0 && (
+                                                <span className="absolute top-1 left-1 text-[9px] font-extrabold px-1 py-0.5 rounded bg-orange-600 text-white leading-none">P</span>
+                                            )}
+                                            {isActive && (
+                                                <span className="absolute inset-0 ring-2 ring-inset ring-orange-500 rounded-2xl pointer-events-none" />
+                                            )}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+
+                            {/* Active slot editor */}
+                            <div className="flex-1 min-w-0 space-y-4">
+
+                                {/* Header row: label + action icons */}
+                                <div className="flex items-center justify-between">
+                                    <span className="text-sm font-bold text-slate-700">
+                                        {activeImageSlot === 0 ? '★ Imagen principal' : 'Imagen secundaria'}
+                                    </span>
+                                    <div className="flex items-center gap-0.5">
+                                        {activeImageSlot !== 0 && imgSlotHasContent && (
+                                            <button
+                                                type="button"
+                                                onClick={() => { swapImages(activeImageSlot, 0); setActiveImageSlot(0); setActivePreviewImageIdx(0); }}
+                                                className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-semibold text-orange-600 hover:bg-orange-50 transition-colors"
+                                                title="Hacer principal"
+                                            >
+                                                <Star className="w-3.5 h-3.5" /> Principal
+                                            </button>
+                                        )}
+                                        {imgSlotHasContent && (
+                                            <button type="button" onClick={() => resetImageCrop(activeImageSlot)}
+                                                className="p-2 rounded-lg text-slate-400 hover:text-blue-500 hover:bg-blue-50 transition-colors" title="Restaurar encuadre">
+                                                <RotateCcw className="w-3.5 h-3.5" />
+                                            </button>
+                                        )}
+                                        {imgSlotHasContent && (
+                                            <button type="button" onClick={() => setEditorImageExpanded(true)}
+                                                className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors" title="Ver a pantalla completa">
+                                                <Maximize2 className="w-3.5 h-3.5" />
+                                            </button>
+                                        )}
+                                        {imgSlotHasContent && (
+                                            <button type="button" onClick={() => clearImageSlot(activeImageSlot)}
+                                                className="p-2 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors" title="Eliminar imagen">
+                                                <Trash2 className="w-3.5 h-3.5" />
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
-                            )}
 
-                            {/* Floating actions */}
-                            <div className="absolute top-3 right-3 flex items-center gap-1.5">
-                                {imgSlotHasContent && (
-                                    <button
-                                        type="button"
-                                        onClick={() => setEditorImageExpanded(true)}
-                                        className="bg-black/50 hover:bg-black/70 text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg inline-flex items-center gap-1.5 transition-colors backdrop-blur-sm"
-                                    >
-                                        <Maximize2 className="w-3.5 h-3.5" />
-                                    </button>
-                                )}
-                            </div>
-
-                            {/* Slot label */}
-                            <div className="absolute bottom-3 left-3">
-                                <span className="bg-black/50 text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg backdrop-blur-sm">
-                                    {activeImageSlot === 0 ? '★ Principal' : `Imagen ${activeImageSlot + 1}`}
-                                </span>
-                            </div>
-                        </div>
-
-                        {/* Toolbar */}
-                        <div className="flex items-center justify-between gap-2 flex-wrap">
-                            <div className="flex items-center gap-1.5">
-                                {activeImageSlot !== 0 && imgSlotHasContent && (
-                                    <button
-                                        type="button"
-                                        onClick={() => { swapImages(activeImageSlot, 0); setActiveImageSlot(0); setActivePreviewImageIdx(0); }}
-                                        className="p-2 rounded-xl text-orange-600 hover:bg-orange-50 transition-colors" title="Hacer principal"
-                                    >
-                                        <Star className="w-4 h-4" />
-                                    </button>
-                                )}
-                                {activeImageSlot > 0 && (
-                                    <button
-                                        type="button"
-                                        onClick={() => { moveImage(activeImageSlot, -1); setActiveImageSlot((v) => Math.max(0, v - 1)); }}
-                                        className="p-2 rounded-xl text-slate-500 hover:bg-slate-100 transition-colors" title="Mover izquierda"
-                                    >
-                                        <ArrowLeft className="w-4 h-4" />
-                                    </button>
-                                )}
-                                {activeImageSlot < 3 && (
-                                    <button
-                                        type="button"
-                                        onClick={() => { moveImage(activeImageSlot, 1); setActiveImageSlot((v) => Math.min(3, v + 1)); }}
-                                        className="p-2 rounded-xl text-slate-500 hover:bg-slate-100 transition-colors" title="Mover derecha"
-                                    >
-                                        <ArrowRight className="w-4 h-4" />
-                                    </button>
-                                )}
-                                <button
-                                    type="button"
-                                    onClick={() => resetImageCrop(activeImageSlot)}
-                                    className="p-2 rounded-xl text-blue-500 hover:bg-blue-50 transition-colors" title="Restaurar"
-                                >
-                                    <RotateCcw className="w-4 h-4" />
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => clearImageSlot(activeImageSlot)}
-                                    className="p-2 rounded-xl text-red-500 hover:bg-red-50 transition-colors" title="Eliminar"
-                                >
-                                    <Trash2 className="w-4 h-4" />
-                                </button>
-                            </div>
-                            <span className="text-xs text-slate-400 font-medium">Hasta 4 fotos · doble clic para expandir</span>
-                        </div>
-
-                        {/* Controls grid */}
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                            {/* Crop controls */}
-                            {imgSlotHasContent && (
-                                <div className="bg-slate-50 rounded-2xl p-4 border border-gray-100 space-y-3">
-                                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Encuadre</p>
-                                    <div>
-                                        <div className="flex items-center justify-between mb-1">
-                                            <span className="text-xs text-slate-600">Zoom</span>
-                                            <span className="text-xs font-bold text-orange-600">{(imgSlot?.crop.zoom ?? 1).toFixed(1)}x</span>
-                                        </div>
-                                        <input
-                                            type="range" min={0.6} max={2.5} step={0.1}
-                                            value={imgSlot?.crop.zoom ?? 1}
-                                            onChange={(e) => updateImageCrop(activeImageSlot, { zoom: Number(e.target.value) })}
-                                            className="w-full h-2 bg-gray-200 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-orange-500"
+                                {/* Preview */}
+                                <div className="aspect-[4/3] rounded-2xl overflow-hidden bg-slate-100 border border-gray-200 relative">
+                                    {imgSlotHasContent ? (
+                                        <img
+                                            src={imagePreviews[activeImageSlot] || DEFAULT_IMAGE}
+                                            alt={`Imagen ${activeImageSlot + 1}`}
+                                            className="absolute inset-0 w-full h-full object-contain bg-slate-100"
+                                            style={{
+                                                transform: `translate(${((imgSlot?.crop.offsetX ?? 0) * 18).toFixed(2)}%, ${((imgSlot?.crop.offsetY ?? 0) * 18).toFixed(2)}%) scale(${imgSlot?.crop.zoom ?? 1})`,
+                                                transformOrigin: 'center',
+                                            }}
+                                            loading="lazy"
+                                            onDoubleClick={() => setEditorImageExpanded(true)}
                                         />
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <div>
-                                            <div className="flex items-center justify-between mb-1">
-                                                <span className="text-xs text-slate-600">Horizontal</span>
-                                                <span className="text-xs font-bold text-orange-600">{(imgSlot?.crop.offsetX ?? 0) > 0 ? '→' : (imgSlot?.crop.offsetX ?? 0) < 0 ? '←' : '•'}</span>
-                                            </div>
-                                            <input
-                                                type="range" min={-1} max={1} step={0.1}
-                                                value={imgSlot?.crop.offsetX ?? 0}
-                                                onChange={(e) => updateImageCrop(activeImageSlot, { offsetX: Number(e.target.value) })}
-                                                className="w-full h-2 bg-gray-200 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-orange-500"
-                                            />
+                                    ) : (
+                                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-slate-300">
+                                            <Upload className="w-8 h-8" />
+                                            <span className="text-xs font-medium">Sin imagen</span>
                                         </div>
-                                        <div>
-                                            <div className="flex items-center justify-between mb-1">
-                                                <span className="text-xs text-slate-600">Vertical</span>
-                                                <span className="text-xs font-bold text-orange-600">{(imgSlot?.crop.offsetY ?? 0) > 0 ? '↓' : (imgSlot?.crop.offsetY ?? 0) < 0 ? '↑' : '•'}</span>
-                                            </div>
-                                            <input
-                                                type="range" min={-1} max={1} step={0.1}
-                                                value={imgSlot?.crop.offsetY ?? 0}
-                                                onChange={(e) => updateImageCrop(activeImageSlot, { offsetY: Number(e.target.value) })}
-                                                className="w-full h-2 bg-gray-200 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-orange-500"
-                                            />
-                                        </div>
-                                    </div>
+                                    )}
                                 </div>
-                            )}
 
-                            {/* Upload / URL */}
-                            <div className="bg-slate-50 rounded-2xl p-4 border border-gray-100 space-y-3">
-                                <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                                    {imgSlotHasContent ? 'Cambiar imagen' : 'Agregar imagen'}
-                                </p>
-                                <input
-                                    type="url"
-                                    value={imgSlot?.url ?? ''}
-                                    onChange={(e) => updateImageUrl(activeImageSlot, e.target.value)}
-                                    placeholder="Ej: https://miportal.cl/catalogo/separador-cono-20mm.jpg"
-                                    className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white"
-                                />
-                                <div className="relative">
-                                    <input
-                                        type="file"
-                                        accept="image/*"
-                                        onChange={(e) => updateImageFile(activeImageSlot, e.target.files?.[0] ?? null)}
-                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                                    />
-                                    <div className={`px-3 py-2.5 border rounded-xl text-sm text-center font-medium pointer-events-none transition-colors ${imgSlotHasContent
-                                        ? 'bg-white border-gray-200 text-slate-600'
-                                        : 'bg-orange-500 border-orange-500 text-white'
-                                        }`}>
-                                        {imgSlot?.file ? imgSlot.file.name.slice(0, 28) : 'Subir archivo'}
-                                    </div>
-                                </div>
-                                {activeImageSlot === 0 && (
-                                    <p className="text-xs text-blue-600 bg-blue-50 border border-blue-100 rounded-xl px-3 py-2">
-                                        Esta imagen se muestra en el catálogo.
+                                {/* Upload zone */}
+                                <div className="bg-slate-50 border border-gray-200 rounded-2xl p-4 space-y-3">
+                                    <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                                        {imgSlotHasContent ? 'Reemplazar' : 'Agregar imagen'}
                                     </p>
+
+                                    {/* File input — primary action */}
+                                    <div className="relative">
+                                        <input
+                                            type="file"
+                                            accept="image/jpeg,image/png,image/webp"
+                                            onChange={(e) => updateImageFile(activeImageSlot, e.target.files?.[0] ?? null)}
+                                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                        />
+                                        <div className={`flex items-center gap-3 px-4 py-3 border-2 border-dashed rounded-xl text-sm font-medium transition-colors ${imgSlot?.file
+                                            ? 'border-emerald-400 bg-emerald-50 text-emerald-700'
+                                            : 'border-orange-300 bg-orange-50/60 text-orange-600 hover:border-orange-400'
+                                            }`}>
+                                            <Upload className="w-4 h-4 shrink-0" />
+                                            <span className="truncate text-xs">
+                                                {imgSlot?.file
+                                                    ? imgSlot.file.name
+                                                    : `Subir JPG / PNG / WebP · máx. ${IMAGE_POLICY_MAX_BYTES_LABEL}`}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* URL — secondary divider */}
+                                    <div className="flex items-center gap-2">
+                                        <div className="flex-1 h-px bg-gray-200" />
+                                        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">o URL externa</span>
+                                        <div className="flex-1 h-px bg-gray-200" />
+                                    </div>
+                                    <input
+                                        type="url"
+                                        value={imgSlot?.url ?? ''}
+                                        onChange={(e) => updateImageUrl(activeImageSlot, e.target.value)}
+                                        placeholder="https://…"
+                                        className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs text-slate-600 focus:outline-none focus:ring-2 focus:ring-orange-400 bg-white placeholder:text-slate-300"
+                                    />
+
+                                    {activeImageSlot === 0 && (
+                                        <p className="text-[11px] text-blue-600 bg-blue-50 rounded-lg px-3 py-1.5">
+                                            Esta imagen aparece en tarjetas del catálogo.
+                                        </p>
+                                    )}
+                                </div>
+
+                                {/* Crop controls (conditional) */}
+                                {imgSlotHasContent && (
+                                    <div className="bg-slate-50 border border-gray-200 rounded-2xl p-4 space-y-3">
+                                        <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Encuadre</p>
+                                        <div className="space-y-3">
+                                            <div>
+                                                <div className="flex items-center justify-between mb-1">
+                                                    <span className="text-xs text-slate-500">Zoom</span>
+                                                    <span className="text-xs font-bold text-orange-600 tabular-nums">{(imgSlot?.crop.zoom ?? 1).toFixed(1)}×</span>
+                                                </div>
+                                                <input type="range" min={0.6} max={2.5} step={0.1}
+                                                    value={imgSlot?.crop.zoom ?? 1}
+                                                    onChange={(e) => updateImageCrop(activeImageSlot, { zoom: Number(e.target.value) })}
+                                                    className="w-full h-1.5 bg-gray-200 rounded-full appearance-none cursor-pointer accent-orange-500"
+                                                />
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <div>
+                                                    <div className="flex items-center justify-between mb-1">
+                                                        <span className="text-xs text-slate-500">Horizontal</span>
+                                                        <span className="text-xs font-bold text-orange-600">{(imgSlot?.crop.offsetX ?? 0) > 0 ? '→' : (imgSlot?.crop.offsetX ?? 0) < 0 ? '←' : '·'}</span>
+                                                    </div>
+                                                    <input type="range" min={-1} max={1} step={0.1}
+                                                        value={imgSlot?.crop.offsetX ?? 0}
+                                                        onChange={(e) => updateImageCrop(activeImageSlot, { offsetX: Number(e.target.value) })}
+                                                        className="w-full h-1.5 bg-gray-200 rounded-full appearance-none cursor-pointer accent-orange-500"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <div className="flex items-center justify-between mb-1">
+                                                        <span className="text-xs text-slate-500">Vertical</span>
+                                                        <span className="text-xs font-bold text-orange-600">{(imgSlot?.crop.offsetY ?? 0) > 0 ? '↓' : (imgSlot?.crop.offsetY ?? 0) < 0 ? '↑' : '·'}</span>
+                                                    </div>
+                                                    <input type="range" min={-1} max={1} step={0.1}
+                                                        value={imgSlot?.crop.offsetY ?? 0}
+                                                        onChange={(e) => updateImageCrop(activeImageSlot, { offsetY: Number(e.target.value) })}
+                                                        className="w-full h-1.5 bg-gray-200 rounded-full appearance-none cursor-pointer accent-orange-500"
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 )}
+
                             </div>
                         </div>
                     </div>
@@ -1546,7 +1580,7 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
        PREVIEW SECTION
        ═══════════════════════════════════════════════ */
 
-    const previewImages = imagePreviews.filter(Boolean).slice(0, 4);
+    const previewImages = imagePreviews.filter(Boolean).slice(0, IMAGE_POLICY_MAX_COUNT);
 
     const PreviewSection = (
         <div className="space-y-5">
@@ -1592,7 +1626,7 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
                 </div>
 
                 {previewImages.length > 1 && (
-                    <div className="grid grid-cols-4 gap-3">
+                    <div className="grid grid-cols-2 gap-3">
                         {previewImages.map((img, idx) => (
                             <button
                                 key={`${img}-${idx}`}

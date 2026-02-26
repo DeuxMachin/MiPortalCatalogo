@@ -1,16 +1,30 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
     Plus, Search, Trash2, Pencil, Package, Eye, EyeOff, AlertTriangle, X,
-    DollarSign, Ban, ChevronLeft, ChevronRight, Layers,
+    DollarSign, Ban, ChevronLeft, ChevronRight, Layers, Loader2, CheckCircle2,
 } from 'lucide-react';
 import { useProducts } from '@/src/features/product-management';
 import { useCategories } from '@/src/features/category-management';
 import type { Product } from '@/src/entities/product/model/types';
 
 const PAGE_SIZE = 30;
+const MIN_PRICE_BULK_PROCESSING_MS = 900;
+
+function waitMs(ms: number) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function formatEta(seconds: number | null) {
+    if (seconds === null) return 'Calculando…';
+    if (seconds < 60) return `${seconds}s`;
+    const min = Math.floor(seconds / 60);
+    const sec = seconds % 60;
+    return `${min}m ${sec}s`;
+}
 
 function getCoverImage(product: Product) {
     return product.images?.[0] || '';
@@ -28,7 +42,17 @@ export default function AdminProductsPage() {
     const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
     const [disableTarget, setDisableTarget] = useState<Product | null>(null);
     const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-    const [bulkUpdatingPrices, setBulkUpdatingPrices] = useState(false);
+
+    type BulkPhase =
+        | { phase: 'idle' }
+        | { phase: 'processing'; done: number; total: number; newValue: boolean }
+        | { phase: 'done'; newValue: boolean }
+        | { phase: 'cancelled'; done: number; total: number };
+
+    const [bulkPhase, setBulkPhase] = useState<BulkPhase>({ phase: 'idle' });
+    const cancelBulkRef = useRef(false);
+    const [bulkStartedAt, setBulkStartedAt] = useState<number | null>(null);
+    const [bulkNowTs, setBulkNowTs] = useState<number>(Date.now());
 
     const queryToast = (() => {
         const t = searchParams.get('toast');
@@ -41,6 +65,14 @@ export default function AdminProductsPage() {
     // Reset page when filters change
     // eslint-disable-next-line react-hooks/set-state-in-effect
     useEffect(() => { setCurrentPage(1); }, [searchQuery, categoryFilter]);
+
+    useEffect(() => {
+        if (bulkPhase.phase !== 'processing') return;
+        const intervalId = window.setInterval(() => {
+            setBulkNowTs(Date.now());
+        }, 250);
+        return () => window.clearInterval(intervalId);
+    }, [bulkPhase.phase]);
 
     const filtered = products.filter((p) => {
         const matchesText =
@@ -101,26 +133,83 @@ export default function AdminProductsPage() {
     };
 
     const handleToggleAllPricesVisible = async () => {
-        if (bulkUpdatingPrices) return;
+        if (bulkPhase.phase === 'processing') return;
         const newValue = !allPricesVisible;
+        const total = products.length;
+        if (total === 0) return;
 
-        setBulkUpdatingPrices(true);
-        const results = await Promise.all(
-            products.map((p) => updateProduct(p.id, { precioVisible: newValue }, { refetch: false })),
-        );
+        cancelBulkRef.current = false;
+        const startAt = Date.now();
+        setBulkStartedAt(startAt);
+        setBulkNowTs(startAt);
+
+        // flushSync garantiza que React pinte el estado 'processing'
+        // ANTES de que el for-loop empiece a ejecutar requests.
+        flushSync(() => {
+            setBulkPhase({ phase: 'processing', done: 0, total, newValue });
+        });
+        const processingStartedAt = startAt;
+
+        let done = 0;
+        let firstError: string | null = null;
+
+        for (const p of products) {
+            if (cancelBulkRef.current) {
+                const elapsed = Date.now() - processingStartedAt;
+                if (elapsed < MIN_PRICE_BULK_PROCESSING_MS) {
+                    await waitMs(MIN_PRICE_BULK_PROCESSING_MS - elapsed);
+                }
+                await refetch();
+                setBulkPhase({ phase: 'cancelled', done, total });
+                return;
+            }
+            const result = await updateProduct(p.id, { precioVisible: newValue }, { refetch: false });
+            if (!result.success && !firstError) {
+                firstError = result.error ?? 'Error actualizando precio.';
+            }
+            done++;
+            // Cada tick actualiza el contador de progreso en pantalla.
+            setBulkPhase({ phase: 'processing', done, total, newValue });
+        }
+
+        const elapsed = Date.now() - processingStartedAt;
+        if (elapsed < MIN_PRICE_BULK_PROCESSING_MS) {
+            await waitMs(MIN_PRICE_BULK_PROCESSING_MS - elapsed);
+        }
 
         await refetch();
 
-        const failed = results.find((r) => !r.success);
-        if (failed) {
-            setToast({ type: 'error', message: failed.error ?? 'No se pudo actualizar la visibilidad de precios.' });
+        if (firstError) {
+            setToast({ type: 'error', message: firstError });
+            setTimeout(() => setToast(null), 3000);
+            setBulkPhase({ phase: 'idle' });
+            setBulkStartedAt(null);
         } else {
-            setToast({ type: 'success', message: newValue ? 'Precios visibles para todos.' : 'Precios ocultos para todos.' });
+            setBulkPhase({ phase: 'done', newValue });
+            setTimeout(() => {
+                setBulkPhase({ phase: 'idle' });
+                setBulkStartedAt(null);
+            }, 3500);
         }
-
-        setTimeout(() => setToast(null), 2500);
-        setBulkUpdatingPrices(false);
     };
+
+    const handleCancelBulk = () => {
+        cancelBulkRef.current = true;
+    };
+
+    const bulkProgressPct = bulkPhase.phase === 'processing'
+        ? (bulkPhase.total > 0 ? Math.round((bulkPhase.done / bulkPhase.total) * 100) : 0)
+        : 0;
+
+    const bulkEtaSeconds = (() => {
+        if (bulkPhase.phase !== 'processing') return null;
+        if (!bulkStartedAt) return null;
+        if (bulkPhase.done <= 0) return null;
+        const elapsedMs = Math.max(1, bulkNowTs - bulkStartedAt);
+        const avgPerItemMs = elapsedMs / bulkPhase.done;
+        const remainingItems = Math.max(0, bulkPhase.total - bulkPhase.done);
+        return Math.max(0, Math.ceil((avgPerItemMs * remainingItems) / 1000));
+    })();
 
     return (
         <div className="max-w-6xl mx-auto">
@@ -163,32 +252,36 @@ export default function AdminProductsPage() {
             </div>
 
             {/* Price visibility */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white border border-gray-100 rounded-xl p-4 mb-6 shadow-sm">
-                <div className="flex items-center gap-3">
-                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${allPricesVisible ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
-                        <DollarSign className="w-5 h-5" />
+            <div className="bg-white border border-gray-100 rounded-xl p-4 mb-6 shadow-sm">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${allPricesVisible ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
+                            <DollarSign className="w-5 h-5" />
+                        </div>
+                        <div>
+                            <p className="text-sm font-bold text-slate-800">Visibilidad de precios</p>
+                            <p className="text-xs text-slate-400">
+                                {allPricesVisible ? 'Todos los precios son visibles' : 'Algunos precios están ocultos'}
+                            </p>
+                        </div>
                     </div>
-                    <div>
-                        <p className="text-sm font-bold text-slate-800">Visibilidad de precios</p>
-                        <p className="text-xs text-slate-400">
-                            {allPricesVisible ? 'Todos los precios son visibles' : 'Algunos precios están ocultos'}
-                        </p>
-                    </div>
+                    <button
+                        onClick={handleToggleAllPricesVisible}
+                        disabled={products.length === 0 || bulkPhase.phase === 'processing'}
+                        className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-xs font-bold transition-all w-full sm:w-auto ${allPricesVisible
+                            ? 'bg-slate-100 text-slate-600 hover:bg-red-50 hover:text-red-600 disabled:opacity-40'
+                            : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200 disabled:opacity-40'
+                            }`}
+                    >
+                        {bulkPhase.phase === 'processing' ? (
+                            <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Procesando…</>
+                        ) : allPricesVisible ? (
+                            <><EyeOff className="w-3.5 h-3.5" /> Ocultar todos</>
+                        ) : (
+                            <><Eye className="w-3.5 h-3.5" /> Mostrar todos</>
+                        )}
+                    </button>
                 </div>
-                <button
-                    onClick={handleToggleAllPricesVisible}
-                    disabled={bulkUpdatingPrices || products.length === 0}
-                    className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-xs font-bold transition-all w-full sm:w-auto ${allPricesVisible
-                        ? 'bg-slate-100 text-slate-600 hover:bg-red-50 hover:text-red-600'
-                        : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
-                        }`}
-                >
-                    {allPricesVisible ? (
-                        <><EyeOff className="w-3.5 h-3.5" /> Ocultar todos</>
-                    ) : (
-                        <><Eye className="w-3.5 h-3.5" /> Mostrar todos</>
-                    )}
-                </button>
             </div>
 
             {/* Search + Category filter */}
@@ -361,6 +454,103 @@ export default function AdminProductsPage() {
                         </div>
                     )}
                 </>
+            )}
+
+            {(bulkPhase.phase === 'processing' || bulkPhase.phase === 'done' || bulkPhase.phase === 'cancelled') && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-black/45 backdrop-blur-sm" />
+                    <div className="relative bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
+                        {bulkPhase.phase === 'processing' && (
+                            <>
+                                <div className="flex items-center gap-3">
+                                    <div className="bg-amber-100 p-2.5 rounded-xl">
+                                        <Loader2 className="w-5 h-5 text-amber-700 animate-spin" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-lg font-bold text-slate-900">Procesando cambio</h3>
+                                        <p className="text-sm text-slate-500">
+                                            {bulkPhase.done} de {bulkPhase.total} actualizados
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                                        <div
+                                            className="h-full bg-amber-400 rounded-full transition-all duration-300"
+                                            style={{ width: `${bulkProgressPct}%` }}
+                                        />
+                                    </div>
+                                    <div className="flex items-center justify-between text-xs text-slate-500">
+                                        <span>{bulkProgressPct}% completado</span>
+                                        <span>Tiempo estimado: {formatEta(bulkEtaSeconds)}</span>
+                                    </div>
+                                </div>
+
+                                <div className="flex justify-end">
+                                    <button
+                                        onClick={handleCancelBulk}
+                                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
+                                    >
+                                        <X className="w-3.5 h-3.5" /> Cancelar
+                                    </button>
+                                </div>
+                            </>
+                        )}
+
+                        {bulkPhase.phase === 'done' && (
+                            <>
+                                <div className="flex items-center gap-3">
+                                    <div className="bg-emerald-100 p-2.5 rounded-xl">
+                                        <CheckCircle2 className="w-5 h-5 text-emerald-700" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-lg font-bold text-slate-900">Cambio aplicado</h3>
+                                        <p className="text-sm text-slate-500">La visibilidad de precios fue actualizada correctamente.</p>
+                                    </div>
+                                </div>
+                                <div className="flex justify-end">
+                                    <button
+                                        onClick={() => {
+                                            setBulkPhase({ phase: 'idle' });
+                                            setBulkStartedAt(null);
+                                        }}
+                                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors"
+                                    >
+                                        Cerrar
+                                    </button>
+                                </div>
+                            </>
+                        )}
+
+                        {bulkPhase.phase === 'cancelled' && (
+                            <>
+                                <div className="flex items-center gap-3">
+                                    <div className="bg-amber-100 p-2.5 rounded-xl">
+                                        <AlertTriangle className="w-5 h-5 text-amber-700" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-lg font-bold text-slate-900">Operación cancelada</h3>
+                                        <p className="text-sm text-slate-500">
+                                            Se actualizaron {bulkPhase.done} de {bulkPhase.total} productos.
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="flex justify-end">
+                                    <button
+                                        onClick={() => {
+                                            setBulkPhase({ phase: 'idle' });
+                                            setBulkStartedAt(null);
+                                        }}
+                                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors"
+                                    >
+                                        Cerrar
+                                    </button>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                </div>
             )}
 
             {disableTarget && (

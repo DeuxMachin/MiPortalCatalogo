@@ -1,9 +1,7 @@
-// VERSIÓN MODAL ACTIVA - Para volver a la versión anterior,
-// descomenta la línea de abajo y comenta la de CatalogViewWithModal
-// import CatalogView from '@/src/views/catalog/ui/CatalogView';
+// Vista principal del catálogo (misma UI original con sidebar)
+// Navega al detalle por ruta, sin usar modal tipo libro.
 import CatalogViewWithModal from '@/src/views/catalog/ui/CatalogViewWithModal';
 
 export default function CatalogPage() {
-    // return <CatalogView />; // Versión página completa
-    return <CatalogViewWithModal />; // Versión modal libro
+    return <CatalogViewWithModal />;
 }

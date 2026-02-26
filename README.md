@@ -1,162 +1,168 @@
 # Catálogo de Productos de Construcción
 
-Una aplicación moderna de catálogo digital diseñada para mostrar productos de construcción con información detallada, especificaciones e imágenes. Esta plataforma proporciona una interfaz pública para navegar productos y un panel administrativo para la gestión de contenido.
+Catálogo digital de productos para materiales y suministros de construcción. Ofrece una interfaz pública para navegar el catálogo con búsqueda y filtros, y un panel administrativo completo para gestionar productos, categorías e imágenes.
 
-## Descripción del Proyecto
+## Características principales
 
-Esta aplicación funciona como un catálogo integral de productos para materiales y suministros de construcción. Permite a los clientes explorar productos disponibles con especificaciones detalladas, información de precios, medidas y referencias visuales, mientras proporciona a los administradores herramientas para gestionar el inventario de productos y la categorización.
+**Interfaz pública**
+- Navegación por categorías con popularidad ordenada
+- Búsqueda y filtros avanzados
+- Detalle de producto con especificaciones técnicas, variantes y recursos descargables
+- Galería de imágenes (hasta 2 por producto, convertidas a WebP automáticamente)
+- Diseño responsivo con Tailwind CSS
 
-### Características Principales
-
-**Interfaz de Catálogo Público**
-- Navegar productos organizados por categorías
-- Capacidades avanzadas de búsqueda y filtrado
-- Páginas de productos detalladas con especificaciones técnicas
-- Galerías de imágenes con soporte para hasta cuatro imágenes por producto
-- Diseño responsivo para visualización óptima en todos los dispositivos
-
-**Panel Administrativo**
-- Creación y edición de productos
+**Panel administrativo**
+- Creación y edición de productos con formulario multi-paso
 - Gestión de categorías
-- Carga y ordenamiento de imágenes (hasta 4 imágenes por producto)
-- Controles de visibilidad para publicar/despublicar productos
-- Autenticación y autorización seguras
+- Carga, reorden y recorte de imágenes con política de validación estricta
+- Control de visibilidad (publicar / despublicar / precio visible)
+- Historial de auditoría de acciones administrativas
+- Autenticación segura vía Supabase Auth
 
-### Alcance Técnico
+**Alcance técnico**
+- Capacidad inicial: ~100 productos
+- Imágenes: máx. 2 por producto · máx. 2 MB por archivo · formatos JPG, PNG, WebP
+- Sin e-commerce: solo visualización de información
 
-- Capacidad inicial: Aproximadamente 100 productos
-- Soporte multi-imagen: Hasta 4 imágenes por producto
-- Sin funcionalidad de comercio electrónico: Solo visualización de información
-- Enfoque en rendimiento, mantenibilidad y seguridad
+---
 
 ## Arquitectura
 
-Este proyecto sigue la metodología **Feature-Sliced Design (FSD)**, un enfoque arquitectónico moderno que organiza el código por características de negocio y capas técnicas. Esta estructura promueve escalabilidad, mantenibilidad y clara separación de responsabilidades.
+El proyecto combina **Feature-Sliced Design (FSD)** con un enfoque de **Arquitectura en Capas** dentro de cada feature (`domain → application → infrastructure`), sobre Next.js 16 con App Router.
 
-### Patrones de Diseño
-
-**Patrón Repository**
-El patrón Repository abstrae la lógica de acceso a datos, proporcionando una interfaz limpia entre la lógica de negocio y las fuentes de datos. Este enfoque ofrece varias ventajas:
-- Lógica de acceso a datos centralizada
-- Pruebas más fáciles mediante inyección de dependencias
-- Flexibilidad para cambiar fuentes de datos sin afectar la lógica de negocio
-- API consistente para operaciones de datos en toda la aplicación
-
-**Módulos de Características**
-Las características están organizadas como módulos independientes y autocontenidos que encapsulan capacidades de negocio específicas. Este enfoque modular permite:
-- Desarrollo y pruebas independientes de características
-- Límites claros entre diferentes funcionalidades
-- Navegación y mantenimiento de código más fácil
-- Acoplamiento reducido entre componentes
-
-**Inyección de Dependencias**
-Implementamos inyección de dependencias para gestionar las dependencias de componentes, lo que proporciona:
-- Mejor capacidad de prueba mediante inyección de mocks
-- Acoplamiento débil entre componentes
-- Mejor organización y reutilización del código
-- Mantenimiento y refactorización simplificados
-
-### Estructura del Proyecto
-
-La aplicación sigue la arquitectura en capas de FSD, organizada desde abstracciones de bajo nivel hasta alto nivel:
+### Estructura real del proyecto
 
 ```
+app/                        # Next.js App Router (rutas)
+│   ├── admin/              # Panel administrativo (products, categories, users, history)
+│   ├── catalog/            # Catálogo público con rutas dinámicas [id]
+│   ├── api/                # Route Handlers (Next.js API)
+│   └── login/              # Autenticación
+│
 src/
-├── app/                    # Capa de inicialización de la aplicación
-│   ├── providers/          # Proveedores globales (enrutamiento, estado, tema)
-│   └── styles/             # Estilos globales y tokens de diseño
+├── app/
+│   ├── providers/          # Proveedores globales de React (ProductContext, AuthContext)
+│   └── styles/             # Estilos globales
 │
-├── processes/              # Procesos de negocio complejos (opcional)
-│   └── [nombre-proceso]/   # Flujos de trabajo multi-paso que abarcan características
+├── entities/               # Tipos y modelos de dominio puros
+│   ├── product/model/      # types.ts — interfaz Product, ProductVariant
+│   └── category/model/     # types.ts — interfaz Category
 │
-├── pages/                  # Componentes a nivel de página (enrutamiento)
-│   ├── catalog/            # Página del catálogo de productos
-│   ├── product-detail/     # Página de detalle de producto individual
-│   └── admin/              # Panel administrativo
+├── features/               # Módulos de negocio autocontenidos
+│   ├── product-management/
+│   │   ├── domain/         # Contratos (interfaces) y política de imágenes
+│   │   │   ├── ProductRepository.ts       # Interfaz completa (Read + Write)
+│   │   │   ├── ProductReadRepository.ts   # Contrato solo lectura
+│   │   │   ├── ProductWriteRepository.ts  # Contrato solo escritura
+│   │   │   └── imagePolicy.ts             # Reglas de validación de imágenes
+│   │   ├── application/    # Use-cases y DTOs/schemas de validación
+│   │   │   ├── adminProductSchemas.ts     # DTOs + validadores (sin dependencias externas)
+│   │   │   ├── CreateProduct.ts           # Use-case: crear producto
+│   │   │   ├── PublishProduct.ts          # Use-case: publicar/despublicar
+│   │   │   ├── ReorderImages.ts           # Use-case: reordenar imágenes
+│   │   │   └── DeleteProduct.ts           # Use-case: eliminar producto
+│   │   ├── infrastructure/ # Implementación concreta (Supabase)
+│   │   │   └── SupabaseProductRepository.ts
+│   │   └── model/          # Estado React + hook useProducts (ProductContext)
+│   │
+│   ├── category-management/
+│   │   ├── domain/         # CategoryRepository.ts
+│   │   ├── application/    # adminCategorySchemas.ts, use-cases CRUD
+│   │   └── infrastructure/ # SupabaseCategoryRepository.ts
+│   │
+│   ├── auth/               # AuthContext + LoginForm
+│   ├── product-filter/     # FilterPanel — UI de filtros
+│   ├── product-search/     # SearchBar
+│   └── product-interaction/# Tracking de popularidad e interacciones
 │
-├── widgets/                # Bloques de UI compuestos
-│   ├── product-card/       # Tarjeta de visualización de producto
-│   ├── product-gallery/    # Componente de galería de imágenes
-│   ├── category-nav/       # Navegación de categorías
-│   └── admin-panel/        # Panel de control administrativo
+├── shared/
+│   ├── config/             # constants.ts
+│   ├── lib/                # formatters, supabase client, errorTracking, adminAudit,
+│   │                       # popularityScore, categoryPopularityOrder, errorPolicy
+│   ├── types/              # common.ts — StockStatus y tipos compartidos
+│   └── ui/                 # ErrorState, LoadingOverlay, Logo, MaintenanceState
 │
-├── features/               # Interacciones de usuario y características de negocio
-│   ├── product-search/     # Funcionalidad de búsqueda de productos
-│   ├── product-filter/     # Capacidades de filtrado
-│   ├── product-management/ # Operaciones CRUD para productos
-│   ├── category-management/# Administración de categorías
-│   └── image-upload/       # Manejo y carga de imágenes
+├── views/                  # Vistas completas (componen widgets + features)
+│   ├── admin/ui/           # ProductFormView (formulario admin completo)
+│   ├── catalog/ui/         # CatalogView, CatalogViewWithModal
+│   ├── categories/ui/      # CategoriesView
+│   └── product-detail/ui/  # ProductDetailView
 │
-├── entities/               # Entidades de negocio y modelos de dominio
-│   ├── product/            # Entidad de producto
-│   │   ├── model/          # Tipos de producto, esquemas, estado
-│   │   ├── api/            # Repositorio de productos y llamadas API
-│   │   └── ui/             # Primitivos UI específicos de producto
-│   └── category/           # Entidad de categoría
-│       ├── model/          # Tipos de categoría y estado
-│       ├── api/            # Repositorio de categorías
-│       └── ui/             # Componentes UI de categoría
-│
-└── shared/                 # Infraestructura y utilidades reutilizables
-    ├── api/                # Configuración de API y servicios base
-    │   ├── repositories/   # Clases base de repositorio
-    │   ├── services/       # Cliente HTTP y utilidades de API
-    │   └── interceptors/   # Interceptores de petición/respuesta
-    ├── ui/                 # Componentes UI compartidos (botones, inputs, etc.)
-    ├── lib/                # Funciones de utilidad y helpers
-    ├── config/             # Configuración de la aplicación
-    └── types/              # Tipos e interfaces TypeScript compartidos
+└── widgets/                # Bloques UI reutilizables
+    ├── header/, footer/
+    ├── product-card/
+    ├── product-gallery/
+    ├── category-nav/
+    └── related-products-carousel/
 ```
 
-### Responsabilidades de las Capas
+### Patrones de diseño implementados
 
-**Capa App**
-Inicializa la aplicación, configura proveedores globales, configuración de enrutamiento y aplica estilos globales. Esta capa orquesta todo el arranque de la aplicación.
+**Repository Pattern — segregado en Read/Write**
+Los contratos de acceso a datos están separados en `ProductReadRepository` (queries) y `ProductWriteRepository` (commands), siguiendo el principio de segregación de interfaces (ISP). `ProductRepository` los compone para la implementación concreta.
 
-**Capa Processes** (Opcional)
-Contiene procesos de negocio complejos que abarcan múltiples características. Para aplicaciones más simples, esta capa puede permanecer vacía, con la lógica distribuida entre las características.
+```
+ProductReadRepository  ──┐
+                          ├── ProductRepository ← SupabaseProductRepository
+ProductWriteRepository ──┘
+```
 
-**Capa Pages**
-Define componentes a nivel de ruta que componen widgets y características en páginas completas. Cada página corresponde a una URL distinta en la aplicación.
+Beneficios directos:
+- Los use-cases que solo escriben (`CreateProduct`, `PublishProduct`) tipan su dependencia como `ProductWriteRepository`, nunca acceden a queries.
+- Los tests inyectan mocks mínimos sin implementar la interfaz completa.
+- Cambiar de Supabase a otra fuente de datos no toca ningún use-case.
 
-**Capa Widgets**
-Componentes UI compuestos que combinan múltiples características y entidades. Los widgets son bloques autocontenidos que pueden reutilizarse en diferentes páginas.
+**Use-Cases (Application Services)**
+Cada acción de negocio vive en su propio archivo bajo `application/`:
 
-**Capa Features**
-Encapsula interacciones de usuario específicas y capacidades de negocio. Cada característica es independiente y se enfoca en una única pieza de funcionalidad.
+| Use-case | Responsabilidad |
+|---|---|
+| `createProductUseCase` | Valida DTO + imágenes, delega a repositorio |
+| `publishProductUseCase` | Valida ID, actualiza `isPublished` |
+| `reorderImagesUseCase` | Valida ID, trunca al límite de política |
+| `deleteProductUseCase` | Valida ID, elimina producto |
 
-**Capa Entities**
-Define entidades de negocio centrales con sus modelos de datos, interacciones API y representaciones UI básicas. Las entidades representan el modelo de dominio de la aplicación.
+**DTO Validation (contratos de entrada del admin)**
+`adminProductSchemas.ts` define interfaces DTO y funciones de validación puras (sin dependencias de frameworks), usables tanto en server como en client:
 
-**Capa Shared**
-Proporciona infraestructura reutilizable, utilidades y componentes UI que pueden usarse en todas las demás capas. Esta capa no tiene dependencias de lógica de negocio.
+- `AdminProductInputDTO` + `validateAdminProductInput`
+- `AdminUploadImageDTO` + `validateAdminUploadImage` + `validateAdminUploadImageList`
 
-### Reglas de Dependencias
+**Domain Policy — `imagePolicy.ts`**
+Fuente única de verdad para las reglas de imágenes. Las constantes (`IMAGE_POLICY_MAX_COUNT`, `IMAGE_POLICY_MAX_BYTES`, etc.) son importadas tanto por los use-cases como por la UI del formulario, garantizando consistencia.
 
-FSD aplica reglas estrictas de dependencias para mantener la integridad arquitectónica:
+**Dependency Injection vía Context**
+`ProductContext` inyecta el repositorio concreto (`SupabaseProductRepository`) al árbol de componentes. Los use-cases reciben el repositorio como parámetro, nunca lo instancian directamente.
 
-- Las capas solo pueden importar desde capas inferiores (ej., pages puede importar desde widgets, features, entities y shared)
-- Los módulos dentro de la misma capa no pueden importarse directamente entre sí
-- La capa shared no puede importar desde ninguna otra capa
-- La comunicación entre características ocurre a través de la capa entities o mediante composición en capas superiores
+**Audit Logging**
+`adminAudit.ts` registra todas las acciones administrativas en Supabase (`auditoria` table) con usuario, acción, entidad y timestamp.
 
-## Stack Tecnológico
+---
 
-- **Framework Frontend**: React con TypeScript
-- **Herramienta de Build**: Vite
-- **Estilos**: CSS Modules / Tailwind CSS
-- **Gestión de Estado**: Por determinar según complejidad
-- **Comunicación API**: Axios con patrón repository
-- **Enrutamiento**: React Router
-- **Manejo de Formularios**: React Hook Form
-- **Validación**: Zod
+## Stack tecnológico real
 
-## Primeros Pasos
+| Área | Tecnología |
+|---|---|
+| Framework | Next.js 16 (App Router) |
+| Lenguaje | TypeScript 5 |
+| UI | React 19 |
+| Estilos | Tailwind CSS 4 |
+| Backend / DB | Supabase (PostgreSQL + Storage + Auth) |
+| Validación | Funciones puras TypeScript (sin Zod) |
+| Gestión de estado | React Context + hooks |
+| Testing | Vitest 4 + @vitest/coverage-v8 |
+| Linting | ESLint 9 + eslint-config-next |
+| Error tracking | @sentry/nextjs → GlitchTip + fallback Supabase |
+| CI/CD | GitHub Actions |
+
+---
+
+## Primeros pasos
 
 ### Prerequisitos
 
-- Node.js (versión 18 o superior)
-- Gestor de paquetes npm o yarn
+- Node.js 20 o superior
+- npm (el proyecto usa `npm ci` en CI)
 
 ### Instalación
 
@@ -167,38 +173,32 @@ npm install
 # Iniciar servidor de desarrollo
 npm run dev
 
-# Construir para producción
+# Build de producción
 npm run build
 
-# Ejecutar pruebas unitarias (watch)
+# Pruebas unitarias en modo watch
 npm run test
 
-# Ejecutar pruebas unitarias (una sola corrida)
+# Pruebas unitarias (una sola corrida, usado en CI)
 npm run test:run
 
-# Cobertura de pruebas
+# Reporte de cobertura (genera /coverage/index.html)
 npm run test:coverage
 ```
 
-### Flujo de Trabajo de Desarrollo
+### Variables de entorno
 
-1. Crear ramas de características desde `main`
-2. Implementar características siguiendo la estructura FSD
-3. Escribir pruebas unitarias para la lógica de negocio
-4. Enviar pull requests para revisión de código
-5. Fusionar a `main` después de aprobación
-
-## Error Tracking (GlitchTip + Supabase Fallback)
-
-La app está integrada con `@sentry/nextjs` para enviar errores a GlitchTip.
-
-### Variables necesarias
-
-Definir en `.env.local`:
+Crear `.env.local` en la raíz:
 
 ```bash
-NEXT_PUBLIC_GLITCHTIP_DSN=<tu_dsn_glitchtip>
-GLITCHTIP_DSN=<tu_dsn_glitchtip>
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=<url_proyecto_supabase>
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon_key>
+SUPABASE_SERVICE_ROLE_KEY=<service_role_key>
+
+# Error tracking
+NEXT_PUBLIC_GLITCHTIP_DSN=<dsn_glitchtip>
+GLITCHTIP_DSN=<dsn_glitchtip>
 NEXT_PUBLIC_APP_ENV=development|staging|production
 APP_ENV=development|staging|production
 NEXT_PUBLIC_APP_RELEASE=<version_o_commit>
@@ -206,63 +206,110 @@ APP_RELEASE=<version_o_commit>
 INTERNAL_APP_URL=http://localhost:3000
 ```
 
-### Verificación rápida
+---
 
-1. Levantar app con `npm run dev`.
-2. Abrir cualquier página y forzar un error (por ejemplo, throw manual en una acción).
-3. Confirmar en GlitchTip que aparece agrupado con `environment` y `release`.
-4. Si GlitchTip falla o el error es crítico en `production`, revisar fallback en Supabase (`error_registros_fallback`).
+## Pruebas unitarias
 
-## Calidad de Código (Unit Tests + CI/CD)
+Las pruebas cubren lógica de negocio pura, sin dependencias de DOM ni de Supabase.
 
-Para mantener estabilidad en cada cambio, el proyecto ahora valida tres capas antes de integrar código:
+### Suites actuales (6 archivos · ~52 tests)
 
-- `npm run lint` para consistencia de estilo y errores estáticos.
-- `npm run test:run` para pruebas unitarias de lógica de negocio.
-- `npm run build` para confirmar que toda la app compila correctamente.
+| Archivo | Qué valida |
+|---|---|
+| `domain/imagePolicy.test.ts` | Política de imágenes: límite de cantidad, peso máximo, MIME permitidos |
+| `application/adminProductSchemas.test.ts` | Validación de DTOs de producto e imagen (casos válidos e inválidos) |
+| `application/createProductUseCase.test.ts` | Use-case de creación: validación, truncado de imágenes, llamadas al repositorio mockeado |
+| `shared/lib/popularityScore.test.ts` | Cálculo de score de popularidad con pesos configurables |
+| `shared/lib/categoryPopularityOrder.test.ts` | Ordenamiento de categorías por popularidad |
+| `shared/lib/errorPolicy.test.ts` | Clasificación de errores: esperados vs inesperados, severidad |
 
-### Qué estamos probando hoy
+### Ejecutar solo un archivo
 
-Las pruebas unitarias actuales se enfocan en lógica crítica y de bajo acoplamiento:
+```bash
+npx vitest run src/features/product-management/domain/imagePolicy.test.ts
+```
 
-- Orden de categorías por popularidad.
-- Política de clasificación de errores (esperados vs inesperados, severidad).
-- Cálculo de score de popularidad con pesos configurables.
+### Cobertura
 
-Esto nos da una base sólida para detectar regresiones rápidas sin depender de pruebas manuales.
+```bash
+npm run test:coverage
+# Reporte en: coverage/index.html
+```
 
-### Pipeline de CI
+---
 
-Se agregó un workflow de GitHub Actions en `.github/workflows/ci.yml` que corre automáticamente en `push` y `pull request` a `main/master`.
+## Pipeline CI/CD
 
-El flujo ejecuta en orden:
+Definido en `.github/workflows/ci.yml`. Se ejecuta automáticamente en cada `push` y `pull_request` a `main` / `master`.
 
-1. Instalación de dependencias (`npm ci`)
-2. Lint
-3. Pruebas unitarias
-4. Build de producción
+```
+push / pull_request → main
+         │
+         ▼
+   1. checkout
+   2. setup Node 20
+   3. npm ci
+   4. npm run lint       ← bloquea si hay errores ESLint
+   5. npm run test:run   ← bloquea si falla cualquier test
+   6. npm run build      ← bloquea si el build de producción falla
+```
 
-Si cualquiera de estos pasos falla, el pipeline bloquea la integración hasta corregir el problema.
+Cualquier paso fallido bloquea el merge. No hay deploy automático configurado actualmente.
 
-## Objetivos del Proyecto
+---
 
-- **Rendimiento**: Tiempos de carga rápidos y experiencia de usuario fluida
-- **Mantenibilidad**: Código limpio y bien organizado que es fácil de entender y modificar
-- **Seguridad**: Autenticación, autorización y validación de datos adecuadas
-- **Escalabilidad**: Arquitectura que puede crecer con las necesidades del negocio
-- **Experiencia de Usuario**: Interfaces intuitivas tanto para usuarios públicos como administradores
+## Error Tracking
 
-## Contribución
+La app usa `@sentry/nextjs` apuntando a una instancia de **GlitchTip** (compatible con la API de Sentry).
 
-Al contribuir a este proyecto, por favor sigue estas directrices:
+- `sentry.client.config.ts` — configuración cliente (browser)
+- `sentry.server.config.ts` — configuración servidor (Node.js)
+- `sentry.edge.config.ts` — configuración edge runtime
+- `instrumentation.ts` / `instrumentation-client.ts` — hooks de OpenTelemetry de Next.js
 
-1. Adherirse a la estructura FSD al agregar nuevas características
-2. Colocar componentes en la capa apropiada según su responsabilidad
-3. Usar el patrón repository para todas las operaciones de acceso a datos
-4. Escribir mensajes de commit significativos
-5. Incluir pruebas para nueva funcionalidad
-6. Actualizar la documentación según sea necesario
+**Fallback a Supabase:** si GlitchTip no está disponible o el error ocurre en `production` sin DSN configurado, los errores críticos se persisten en la tabla `error_registros_fallback` de Supabase mediante `src/shared/lib/errorTracking.ts`.
+
+**Verificación rápida:**
+1. Levantar app con `npm run dev`
+2. Navegar a `/debug/error-lab` para forzar errores controlados
+3. Confirmar que aparecen en GlitchTip con `environment` y `release` correctos
+
+---
+
+## Migraciones de base de datos
+
+Las migraciones de Supabase están versionadas en `supabase/migrations/`:
+
+| Migración | Descripción |
+|---|---|
+| `001` | Campo `precio_visible` en productos |
+| `002` | Tabla de auditoría |
+| `003` | Soporte especificación variada |
+| `004` | Contenido detallado de producto |
+| `005` | Corrección función `es_admin` |
+| `006` | Bucket storage `catalogo-productos` |
+| `007` | Lectura pública del catálogo |
+| `008` | Ranking de popularidad |
+| `009` | Fallback de error tracking |
+| `010` | Vistas seguras de errores |
+| `011` | TTL y limpieza de auditoría |
+| `012` | Campo `nombre_formato` en variantes |
+| `013` | Corrección `es_admin` para incluir owner |
+
+---
+
+## Guía de contribución
+
+1. **Ramas**: crear desde `main` con prefijo `feat/`, `fix/` o `chore/`
+2. **FSD**: respetar la capa correcta para cada tipo de código (ver estructura arriba)
+3. **Capas internas de feature**: `domain` no importa de `application`; `application` no importa de `infrastructure`
+4. **Repository**: toda lectura/escritura de datos pasa por una implementación de repositorio — nunca llamar a Supabase directamente desde un componente
+5. **Use-cases**: las acciones del admin van en `application/`, reciben el repositorio como parámetro
+6. **Tests**: nueva lógica de negocio → nuevo archivo `.test.ts` en la misma carpeta
+7. **Commits**: mensajes descriptivos en español o inglés, consistente por PR
+
+---
 
 ## Licencia
 
-Este proyecto es propietario y confidencial.
+Proyecto propietario y confidencial.

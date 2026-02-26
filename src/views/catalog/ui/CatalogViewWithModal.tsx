@@ -1,11 +1,9 @@
-﻿'use client';
+'use client';
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
     ArrowRight,
-    ChevronLeft,
-    ChevronRight,
     Filter,
     LayoutGrid,
     List as ListIcon,
@@ -16,7 +14,6 @@ import type { Product } from '@/src/entities/product/model/types';
 import type { StockStatus } from '@/src/shared/types/common';
 import { formatPrice } from '@/src/shared/lib/formatters';
 import FilterPanelEnhanced from '@/src/features/product-filter/ui/FilterPanelEnhanced';
-import ProductBookModal from '@/src/widgets/product-book-modal';
 import LoadingOverlay from '@/src/shared/ui/LoadingOverlay';
 import { reportError } from '@/src/shared/lib/errorTracking';
 import { useProducts } from '@/src/features/product-management';
@@ -26,8 +23,6 @@ import { getCategoryPopularityRank } from '@/src/shared/lib/categoryPopularityOr
 
 type ViewMode = 'grid' | 'list';
 type SortOption = 'recommended' | 'popular' | 'price-asc' | 'price-desc' | 'name-asc';
-
-const PRODUCTS_PER_PAGE = 15;
 
 const SORT_OPTIONS: { value: SortOption; label: string }[] = [
     { value: 'recommended', label: 'Recomendado' },
@@ -47,17 +42,19 @@ export default function CatalogViewWithModal() {
     const router = useRouter();
     const { products: allProducts, error: productsError } = useProducts();
     const { activeCategories, loading: catsLoading, error: categoriesError } = useCategories();
-    const { trackView, trackClick } = useProductInteractionTracker();
+    const { trackClick } = useProductInteractionTracker();
     const { popularityByProductId } = useProductPopularity(allProducts);
     const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
-    const [viewMode, setViewMode] = useState<ViewMode>('grid');
+    const [viewMode, setViewMode] = useState<ViewMode>(() => {
+        if (typeof window !== 'undefined' && window.innerWidth <= 1023) {
+            return 'list';
+        }
+        return 'grid';
+    });
     const [searchQuery, setSearchQuery] = useState('');
     const [stockFilter, setStockFilter] = useState<StockStatus | null>(null);
     const [sortBy, setSortBy] = useState<SortOption>('recommended');
-    const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-    const [isModalOpen, setIsModalOpen] = useState(false);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-    const [currentPage, setCurrentPage] = useState(1);
 
     useEffect(() => {
         if (typeof window === 'undefined') return;
@@ -85,7 +82,6 @@ export default function CatalogViewWithModal() {
         return () => mediaQuery.removeEventListener('change', onChange);
     }, []);
 
-
     const categoryNameById = useMemo(() => {
         return new Map(activeCategories.map((c) => [c.id, c.nombre] as const));
     }, [activeCategories]);
@@ -99,6 +95,7 @@ export default function CatalogViewWithModal() {
             const parsed = Date.parse(product.createdAt);
             return Number.isNaN(parsed) ? 0 : parsed;
         };
+
         let products = allProducts.filter((p) => p.isPublished);
 
         if (activeCategoryId) {
@@ -114,11 +111,11 @@ export default function CatalogViewWithModal() {
             products = products.filter((p) => {
                 const categoryName = getCategoryName(p).toLowerCase();
                 return (
-                    p.title.toLowerCase().includes(query) ||
-                    p.sku.toLowerCase().includes(query) ||
-                    categoryName.includes(query) ||
-                    (p.material ?? '').toLowerCase().includes(query) ||
-                    (p.presentacion ?? '').toLowerCase().includes(query)
+                    p.title.toLowerCase().includes(query)
+                    || p.sku.toLowerCase().includes(query)
+                    || categoryName.includes(query)
+                    || (p.material ?? '').toLowerCase().includes(query)
+                    || (p.presentacion ?? '').toLowerCase().includes(query)
                 );
             });
         }
@@ -162,26 +159,6 @@ export default function CatalogViewWithModal() {
         return products;
     }, [activeCategoryId, allProducts, categoryNameById, popularityByProductId, searchQuery, sortBy, stockFilter]);
 
-    // Reset to page 1 when filters change
-    /* eslint-disable react-hooks/set-state-in-effect */
-    useEffect(() => {
-        setCurrentPage(1);
-    }, [activeCategoryId, searchQuery, sortBy, stockFilter]);
-    /* eslint-enable react-hooks/set-state-in-effect */
-
-    // Pagination computations
-    const totalPages = Math.max(1, Math.ceil(filteredProducts.length / PRODUCTS_PER_PAGE));
-    const safePage = Math.min(currentPage, totalPages);
-    const startIndex = (safePage - 1) * PRODUCTS_PER_PAGE;
-    const endIndex = Math.min(startIndex + PRODUCTS_PER_PAGE, filteredProducts.length);
-    const paginatedProducts = filteredProducts.slice(startIndex, endIndex);
-
-    const goToPage = (page: number) => {
-        const clamped = Math.max(1, Math.min(page, totalPages));
-        setCurrentPage(clamped);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    };
-
     const activeCategoryName = activeCategoryId
         ? activeCategories.find((c) => c.id === activeCategoryId)?.nombre
         : null;
@@ -202,29 +179,23 @@ export default function CatalogViewWithModal() {
     }, [categoriesError, loadError, productsError]);
 
     const handleProductOpen = (product: Product) => {
-        setSelectedProduct(product);
-        setIsModalOpen(true);
-        void trackView(product.id);
+        void trackClick(product.id, 'open_product');
+        router.push(`/catalog/${product.id}`);
     };
 
     const handleProductIntentClick = (product: Product, action: string) => {
         void trackClick(product.id, action);
     };
 
-    const handleCloseModal = () => {
-        setIsModalOpen(false);
-        setTimeout(() => setSelectedProduct(null), 300);
-    };
-
     const clearAllFilters = () => {
         setSearchQuery('');
         setStockFilter(null);
         setActiveCategoryId(null);
-        setCurrentPage(1);
     };
 
     const getCategoryName = (product: Product) =>
         categoryNameById.get(String(product.categoryId)) ?? product.category ?? 'Sin categoria';
+
     return (
         <>
             <LoadingOverlay visible={showLoading} message="Cargando catalogo..." />
@@ -355,43 +326,22 @@ export default function CatalogViewWithModal() {
                                 </button>
                             </div>
                         ) : (
-                            <>
-                                <div className={`grid gap-5 ${viewMode === 'grid' ? 'grid-cols-1 md:grid-cols-2 2xl:grid-cols-3' : 'grid-cols-1'}`}>
-                                    {paginatedProducts.map((product) => (
-                                        <CatalogProductCard
-                                            key={product.id}
-                                            product={product}
-                                            viewMode={viewMode}
-                                            categoryLabel={getCategoryName(product)}
-                                            onOpen={() => handleProductOpen(product)}
-                                            onIntentClick={(action) => handleProductIntentClick(product, action)}
-                                        />
-                                    ))}
-                                </div>
-
-                                {totalPages > 1 && (
-                                    <PaginationControls
-                                        currentPage={safePage}
-                                        totalPages={totalPages}
-                                        startIndex={startIndex}
-                                        endIndex={endIndex}
-                                        totalItems={filteredProducts.length}
-                                        onPageChange={goToPage}
+                            <div className={`grid gap-5 ${viewMode === 'grid' ? 'grid-cols-1 md:grid-cols-2 2xl:grid-cols-3' : 'grid-cols-1'}`}>
+                                {filteredProducts.map((product) => (
+                                    <CatalogProductCard
+                                        key={product.id}
+                                        product={product}
+                                        viewMode={viewMode}
+                                        categoryLabel={getCategoryName(product)}
+                                        onOpen={() => handleProductOpen(product)}
+                                        onIntentClick={(action) => handleProductIntentClick(product, action)}
                                     />
-                                )}
-                            </>
+                                ))}
+                            </div>
                         )}
                     </main>
                 </div>
             </div>
-
-            {selectedProduct && (
-                <ProductBookModal
-                    product={selectedProduct}
-                    isOpen={isModalOpen}
-                    onClose={handleCloseModal}
-                />
-            )}
         </>
     );
 }
@@ -408,10 +358,11 @@ function FilterChip({
     return (
         <button
             onClick={onClick}
-            className={`px-3 py-1.5 rounded-full text-xs md:text-sm font-semibold whitespace-nowrap transition-all flex items-center gap-2 border ${active
-                ? 'bg-orange-600 border-orange-600 text-white shadow-md shadow-orange-200'
-                : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
-                }`}
+            className={`px-3 py-1.5 rounded-full text-xs md:text-sm font-semibold whitespace-nowrap transition-all flex items-center gap-2 border ${
+                active
+                    ? 'bg-orange-600 border-orange-600 text-white shadow-md shadow-orange-200'
+                    : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+            }`}
         >
             {label}
             {active && <X className="w-3 h-3" />}
@@ -448,41 +399,28 @@ function CatalogProductCard({
     onIntentClick: (action: string) => void;
 }) {
     if (viewMode === 'list') {
-        const priceEl = product.precioVisible !== false ? (
-            <span className="font-bold text-slate-800 text-sm">${formatPrice(product.price)}</span>
-        ) : (
-            <span className="font-bold text-orange-700 text-sm">Consultar precio</span>
-        );
-
         return (
             <div
                 onClick={onOpen}
-                className="group bg-white border border-slate-200 rounded-xl p-3 md:p-4 flex items-center gap-3 md:gap-4 hover:shadow-lg hover:border-orange-200 transition-all cursor-pointer"
+                className="group bg-white border border-slate-200 rounded-xl p-3 md:p-4 flex items-center gap-4 hover:shadow-lg hover:border-orange-200 transition-all cursor-pointer"
             >
-                {/* Thumbnail */}
-                <div className="w-14 h-14 md:w-16 md:h-16 rounded-lg bg-slate-50 overflow-hidden shrink-0 border border-slate-100">
+                <div className="w-16 h-16 rounded-lg bg-slate-50 overflow-hidden shrink-0 border border-slate-100">
                     <img
                         src={product.images[0]}
                         className="w-full h-full object-cover"
                         alt={product.title}
                     />
                 </div>
-
-                {/* Main info */}
                 <div className="flex-1 min-w-0">
-                    <span className="inline-block text-[11px] font-semibold text-orange-700 bg-orange-50 px-2 py-0.5 rounded-full mb-1">
-                        {categoryLabel}
-                    </span>
-                    {/* Title — full text, 2-line clamp */}
-                    <h3 className="font-bold text-slate-800 text-sm md:text-base leading-snug line-clamp-2 group-hover:text-orange-700 transition-colors">
-                        {product.title}
-                    </h3>
-                    {/* Price shown inline on mobile, hidden on sm+ (right column handles it) */}
-                    <div className="mt-1 sm:hidden">{priceEl}</div>
+                    <div className="mb-0.5">
+                        <span className="text-xs md:text-sm font-semibold text-orange-700 bg-orange-50 px-2.5 py-0.5 rounded-full w-fit">
+                            Categoria: {categoryLabel}
+                        </span>
+                    </div>
+                    <h3 className="font-bold text-slate-800 text-base md:text-lg truncate">{product.title}</h3>
+                    <p className="text-sm text-slate-600">{product.presentacion ?? product.unit}</p>
                 </div>
-
-                {/* Right column — price + quick-view, hidden on mobile */}
-                <div className="hidden sm:flex flex-col items-end shrink-0 gap-1">
+                <div className="text-right shrink-0">
                     {product.precioVisible !== false ? (
                         <p className="text-lg md:text-xl font-bold text-slate-800">${formatPrice(product.price)}</p>
                     ) : (
@@ -494,9 +432,9 @@ function CatalogProductCard({
                             onIntentClick('quick_view');
                             onOpen();
                         }}
-                        className="text-[10px] font-bold text-slate-400 hover:text-orange-600 transition-colors uppercase tracking-widest"
+                        className="text-[10px] font-bold text-slate-400 hover:text-orange-600 transition-colors uppercase tracking-widest mt-1"
                     >
-                        Ficha rápida
+                        Ficha rapida
                     </button>
                 </div>
             </div>
@@ -561,98 +499,6 @@ function CatalogProductCard({
                     </button>
                 </div>
             </div>
-        </div>
-    );
-}
-
-function PaginationControls({
-    currentPage,
-    totalPages,
-    startIndex,
-    endIndex,
-    totalItems,
-    onPageChange,
-}: {
-    currentPage: number;
-    totalPages: number;
-    startIndex: number;
-    endIndex: number;
-    totalItems: number;
-    onPageChange: (page: number) => void;
-}) {
-    // Build page numbers with ellipsis
-    const getPageNumbers = (): (number | 'ellipsis-start' | 'ellipsis-end')[] => {
-        const pages: (number | 'ellipsis-start' | 'ellipsis-end')[] = [];
-        if (totalPages <= 7) {
-            for (let i = 1; i <= totalPages; i++) pages.push(i);
-        } else {
-            pages.push(1);
-            if (currentPage > 3) pages.push('ellipsis-start');
-            const start = Math.max(2, currentPage - 1);
-            const end = Math.min(totalPages - 1, currentPage + 1);
-            for (let i = start; i <= end; i++) pages.push(i);
-            if (currentPage < totalPages - 2) pages.push('ellipsis-end');
-            pages.push(totalPages);
-        }
-        return pages;
-    };
-
-    const pageNumbers = getPageNumbers();
-
-    return (
-        <div className="mt-8 flex flex-col items-center gap-4">
-            {/* Page buttons */}
-            <div className="flex items-center gap-1.5">
-                {/* Prev */}
-                <button
-                    onClick={() => onPageChange(currentPage - 1)}
-                    disabled={currentPage <= 1}
-                    className="flex items-center justify-center w-9 h-9 rounded-xl border border-slate-200 bg-white text-slate-500 hover:border-orange-300 hover:text-orange-600 transition-all disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:border-slate-200 disabled:hover:text-slate-500"
-                    aria-label="Página anterior"
-                >
-                    <ChevronLeft className="w-4 h-4" />
-                </button>
-
-                {pageNumbers.map((page) => {
-                    if (typeof page === 'string') {
-                        return (
-                            <span key={page} className="w-9 h-9 flex items-center justify-center text-slate-400 text-sm select-none">
-                                ···
-                            </span>
-                        );
-                    }
-                    const isActive = page === currentPage;
-                    return (
-                        <button
-                            key={`page-${page}`}
-                            onClick={() => onPageChange(page)}
-                            className={`w-9 h-9 rounded-xl text-sm font-semibold transition-all ${isActive
-                                ? 'bg-orange-600 text-white shadow-md shadow-orange-200 scale-105'
-                                : 'bg-white border border-slate-200 text-slate-600 hover:border-orange-300 hover:text-orange-600'
-                                }`}
-                            aria-label={`Ir a página ${page}`}
-                            aria-current={isActive ? 'page' : undefined}
-                        >
-                            {page}
-                        </button>
-                    );
-                })}
-
-                {/* Next */}
-                <button
-                    onClick={() => onPageChange(currentPage + 1)}
-                    disabled={currentPage >= totalPages}
-                    className="flex items-center justify-center w-9 h-9 rounded-xl border border-slate-200 bg-white text-slate-500 hover:border-orange-300 hover:text-orange-600 transition-all disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:border-slate-200 disabled:hover:text-slate-500"
-                    aria-label="Página siguiente"
-                >
-                    <ChevronRight className="w-4 h-4" />
-                </button>
-            </div>
-
-            {/* Summary */}
-            <p className="text-xs font-medium text-slate-400">
-                Mostrando {startIndex + 1}–{endIndex} de {totalItems} productos
-            </p>
         </div>
     );
 }
