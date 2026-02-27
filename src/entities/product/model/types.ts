@@ -18,7 +18,7 @@ export interface ProductResource {
 export interface ProductVariant {
     id: string;
     sku: string;
-    price: number;
+    price: number | null;
     unit: string;
     stock: StockStatus;
     /** Nombre personalizado del formato (máx 30 caracteres). */

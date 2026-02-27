@@ -606,7 +606,11 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
     const activeVariant = form.variants[safeActiveVariantIndex] ?? form.variants[0];
     const previewVariant = form.variants[safePreviewVariantIndex] ?? primaryVariant;
     const previewSku = previewVariant?.sku || form.sku;
-    const previewPrice = Number(previewVariant?.price || form.price || 0);
+    const previewVariantIsNonPrimary = previewVariant && !previewVariant.isActive;
+    const previewPriceRaw = previewVariantIsNonPrimary
+        ? (previewVariant.price !== '' ? Number(previewVariant.price) : null)
+        : Number(previewVariant?.price || form.price || 0);
+    const previewPrice = previewPriceRaw;
     const previewStock = previewVariant?.stock || form.stock;
     const filledSpecs = form.specs.filter((s) => s.key.trim());
     const hasImages = imagePreviews.some((p) => !!p);
@@ -647,7 +651,7 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
         const variantsPayload = form.variants.map((variant, index) => ({
             id: variant.id,
             sku: variant.sku.trim() || `SKU-${Date.now()}-${index + 1}`,
-            price: Number(variant.price) || 0,
+            price: variant.price !== '' ? Number(variant.price) : null,
             unit: 'CLP',
             stock: variant.stock,
             formatName: variant.formatName.trim() || undefined,
@@ -679,7 +683,7 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
             const baseData = {
                 title: form.title || 'Producto Sin Nombre',
                 sku: principalVariant.sku,
-                price: principalVariant.price,
+                price: principalVariant.price != null ? principalVariant.price : 0,
                 categoryId: catId,
                 category: categoryName || 'Sin Categoría',
                 description: principalVariantForm?.description || form.description,
@@ -1674,11 +1678,12 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
                     )}
 
                     {form.precioVisible ? (
+                        previewPrice != null && previewPrice > 0 ? (
                         <div className="bg-white border border-gray-200 rounded-2xl p-6 relative overflow-hidden">
                             <div className="absolute top-0 right-0 w-20 h-20 bg-orange-600/5 rounded-full -mr-10 -mt-10" />
                             <div className="flex items-baseline gap-2 mb-1">
                                 <span className="text-4xl font-extrabold text-slate-900 tracking-tight">
-                                    ${previewPrice ? formatPrice(previewPrice) : '0'}
+                                    ${formatPrice(previewPrice)}
                                 </span>
                                 <span className="text-base font-semibold text-slate-400">Neto</span>
                             </div>
@@ -1686,6 +1691,11 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
                                 <Info className="w-3.5 h-3.5" /> Valores sujetos a variación por volumen
                             </p>
                         </div>
+                        ) : (
+                        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 text-center">
+                            <p className="text-base font-semibold text-slate-500">Sin precio</p>
+                        </div>
+                        )
                     ) : (
                         <div className="bg-orange-50 border border-orange-200 rounded-2xl p-5 text-center">
                             <p className="text-base font-bold text-orange-700">Precio bajo consulta</p>

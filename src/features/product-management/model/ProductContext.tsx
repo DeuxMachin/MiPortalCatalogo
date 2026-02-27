@@ -504,7 +504,7 @@ export function ProductProvider({ children }: { children: ReactNode }) {
                     return {
                         producto_id: productId,
                         sku: finalSku,
-                        precio: Number(variant.price ?? 0),
+                        precio: variant.price != null ? Number(variant.price) : null,
                         moneda: variant.unit ?? 'CLP',
                         estado_stock: variant.stock ?? 'EN STOCK',
                         nombre_formato: (variant as any).formatName ?? null,

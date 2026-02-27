@@ -95,7 +95,9 @@ export default function ProductDetailView({ product }: ProductDetailViewProps) {
         () => ({
             ...product,
             sku: selectedVariant?.sku ?? product.sku,
-            price: selectedVariant?.price ?? product.price,
+            price: selectedVariant
+                ? (selectedVariant.price !== null ? selectedVariant.price : null)
+                : product.price,
             unit: selectedVariant?.unit ?? product.unit,
             stock: selectedVariant?.stock ?? product.stock,
             quickSpecs: selectedVariant?.quickSpecs ?? product.quickSpecs,
@@ -346,6 +348,7 @@ export default function ProductDetailView({ product }: ProductDetailViewProps) {
                         {/* Bloque de Precio (dark) */}
                         <div className="mt-auto">
                             {productData.precioVisible !== false ? (
+                            productData.price != null ? (
                                 <div className="bg-slate-900 rounded-2xl p-6 text-white shadow-xl">
                                     <div className="flex items-end justify-between mb-4">
                                         <div>
@@ -366,6 +369,11 @@ export default function ProductDetailView({ product }: ProductDetailViewProps) {
                                         * El precio final puede variar según volumen de compra y costos de envío logístico.
                                     </p>
                                 </div>
+                            ) : (
+                                <div className="bg-slate-100 rounded-2xl p-6 text-center shadow-sm">
+                                    <p className="text-base font-semibold text-slate-500">Sin precio</p>
+                                </div>
+                            )
                             ) : (
                                 <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-2xl p-6 text-white shadow-xl">
                                     <p className="text-xl font-black mb-1">Precio bajo consulta</p>

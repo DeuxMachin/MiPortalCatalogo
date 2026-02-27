@@ -276,27 +276,6 @@ La app usa `@sentry/nextjs` apuntando a una instancia de **GlitchTip** (compatib
 
 ---
 
-## Migraciones de base de datos
-
-Las migraciones de Supabase están versionadas en `supabase/migrations/`:
-
-| Migración | Descripción |
-|---|---|
-| `001` | Campo `precio_visible` en productos |
-| `002` | Tabla de auditoría |
-| `003` | Soporte especificación variada |
-| `004` | Contenido detallado de producto |
-| `005` | Corrección función `es_admin` |
-| `006` | Bucket storage `catalogo-productos` |
-| `007` | Lectura pública del catálogo |
-| `008` | Ranking de popularidad |
-| `009` | Fallback de error tracking |
-| `010` | Vistas seguras de errores |
-| `011` | TTL y limpieza de auditoría |
-| `012` | Campo `nombre_formato` en variantes |
-| `013` | Corrección `es_admin` para incluir owner |
-
----
 
 ## Guía de contribución
 
