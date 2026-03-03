@@ -23,20 +23,11 @@ export default function FilterPanelEnhanced({
 }: FilterPanelProps) {
     const [searchTerm, setSearchTerm] = useState('');
     const [collapsedCategories, setCollapsedCategories] = useState(false);
-    const [showAllWhenSelected, setShowAllWhenSelected] = useState(false);
-
-    /* eslint-disable react-hooks/set-state-in-effect */
-    useEffect(() => {
-        if (activeCategoryId) {
-            setShowAllWhenSelected(false);
-        }
-    }, [activeCategoryId]);
-    /* eslint-enable react-hooks/set-state-in-effect */
 
     const categoriesWithCount = useMemo(() => {
         return categories.map((cat) => ({
             ...cat,
-            count: products.filter((p) => p.isPublished && String(p.categoryId) === cat.id).length,
+            count: products.filter((p) => p.isPublished && String(p.categoryId) === String(cat.id)).length,
         }));
     }, [categories, products]);
 
@@ -48,10 +39,7 @@ export default function FilterPanelEnhanced({
         return [...base].sort((a, b) => compareByPopularityCategoryName(a.nombre, b.nombre));
     }, [categoriesWithCount, searchTerm]);
 
-    const visibleCategories = useMemo(() => {
-        if (!activeCategoryId || showAllWhenSelected) return filteredCategories;
-        return filteredCategories.filter((cat) => cat.id === activeCategoryId);
-    }, [activeCategoryId, filteredCategories, showAllWhenSelected]);
+    const visibleCategories = filteredCategories;
 
     const panelClassName = `bg-white border-b md:border-b-0 md:border-r border-slate-200 transition-all overflow-hidden md:overflow-y-auto md:sticky md:top-16 md:h-[calc(100vh-64px)] ${isOpen ? 'w-full md:w-72 opacity-100 max-h-[70vh] md:max-h-none' : 'w-0 md:w-0 opacity-0 pointer-events-none max-h-0 md:max-h-none'
         }`;
@@ -113,20 +101,16 @@ export default function FilterPanelEnhanced({
                             <p className="text-center text-xs text-slate-400 py-6">Sin resultados</p>
                         ) : (
                             visibleCategories.map((cat) => {
-                                const isActive = activeCategoryId === cat.id;
-                                const isContracted = Boolean(activeCategoryId) && !isActive;
+                                const isActive = activeCategoryId === String(cat.id);
                                 return (
                                     <button
                                         key={cat.id}
                                         onClick={() => {
-                                            onCategoryChange(isActive ? null : cat.id);
-                                            if (!isActive) setShowAllWhenSelected(false);
+                                            onCategoryChange(isActive ? null : String(cat.id));
                                         }}
                                         className={`w-full flex items-center justify-between rounded-lg transition-all ${isActive
                                             ? 'bg-orange-50 text-orange-700 font-bold p-2.5 text-sm'
-                                            : isContracted
-                                                ? 'hover:bg-slate-50 text-slate-500 p-1.5 text-xs opacity-70'
-                                                : 'hover:bg-slate-50 text-slate-600 p-2.5 text-sm'
+                                            : 'hover:bg-slate-50 text-slate-600 p-2.5 text-sm'
                                             }`}
                                     >
                                         <span className="flex items-center gap-3">
@@ -146,12 +130,12 @@ export default function FilterPanelEnhanced({
                             })
                         )}
 
-                        {activeCategoryId && !showAllWhenSelected && filteredCategories.length > 1 && (
+                        {activeCategoryId && (
                             <button
-                                onClick={() => setShowAllWhenSelected(true)}
+                                onClick={() => onCategoryChange(null)}
                                 className="w-full mt-2 text-xs font-bold text-orange-700 hover:text-orange-600 text-left px-2"
                             >
-                                Ver otras categorías
+                                Limpiar filtro de categoría
                             </button>
                         )}
                     </nav>

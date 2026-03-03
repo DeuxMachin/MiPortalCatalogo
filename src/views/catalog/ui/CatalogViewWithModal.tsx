@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
     ArrowRight,
+    ChevronLeft,
+    ChevronRight,
     Filter,
     LayoutGrid,
     List as ListIcon,
@@ -38,6 +40,22 @@ const STOCK_FILTERS: Array<{ value: StockStatus; label: string }> = [
     { value: 'SIN STOCK', label: 'Sin stock' },
 ];
 
+function getPaginationItems(currentPage: number, totalPages: number): Array<number | 'ellipsis'> {
+    if (totalPages <= 7) {
+        return Array.from({ length: totalPages }, (_, idx) => idx + 1);
+    }
+
+    if (currentPage <= 3) {
+        return [1, 2, 3, 4, 'ellipsis', totalPages];
+    }
+
+    if (currentPage >= totalPages - 2) {
+        return [1, 'ellipsis', totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+    }
+
+    return [1, 'ellipsis', currentPage - 1, currentPage, currentPage + 1, 'ellipsis', totalPages];
+}
+
 export default function CatalogViewWithModal() {
     const router = useRouter();
     const { products: allProducts, error: productsError } = useProducts();
@@ -55,10 +73,29 @@ export default function CatalogViewWithModal() {
     const [stockFilter, setStockFilter] = useState<StockStatus | null>(null);
     const [sortBy, setSortBy] = useState<SortOption>('recommended');
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [isMobile, setIsMobile] = useState(false);
+    const [currentPage, setCurrentPage] = useState(1);
 
     useEffect(() => {
         if (typeof window === 'undefined') return;
-        const syncSidebar = () => setIsSidebarOpen(window.innerWidth >= 768);
+
+        const syncCategoryFromUrl = () => {
+            const params = new URLSearchParams(window.location.search);
+            const categoryFromUrl = params.get('cat');
+            setActiveCategoryId(categoryFromUrl ? String(categoryFromUrl) : null);
+        };
+
+        syncCategoryFromUrl();
+        window.addEventListener('popstate', syncCategoryFromUrl);
+        return () => window.removeEventListener('popstate', syncCategoryFromUrl);
+    }, []);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const syncSidebar = () => {
+            setIsSidebarOpen(window.innerWidth >= 768);
+            setIsMobile(window.innerWidth < 768);
+        };
         syncSidebar();
         window.addEventListener('resize', syncSidebar);
         return () => window.removeEventListener('resize', syncSidebar);
@@ -163,6 +200,30 @@ export default function CatalogViewWithModal() {
         ? activeCategories.find((c) => c.id === activeCategoryId)?.nombre
         : null;
 
+    const productsPerPage = useMemo(() => {
+        if (viewMode === 'list') {
+            return isMobile ? 8 : 10;
+        }
+        return isMobile ? 6 : 9;
+    }, [isMobile, viewMode]);
+
+    const totalPages = Math.max(1, Math.ceil(filteredProducts.length / productsPerPage));
+
+    const paginatedProducts = useMemo(() => {
+        const start = (currentPage - 1) * productsPerPage;
+        return filteredProducts.slice(start, start + productsPerPage);
+    }, [currentPage, filteredProducts, productsPerPage]);
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [activeCategoryId, productsPerPage, searchQuery, sortBy, stockFilter, viewMode]);
+
+    useEffect(() => {
+        if (currentPage > totalPages) {
+            setCurrentPage(totalPages);
+        }
+    }, [currentPage, totalPages]);
+
     const showLoading = catsLoading && activeCategories.length === 0;
     const loadError = categoriesError || productsError;
 
@@ -187,10 +248,28 @@ export default function CatalogViewWithModal() {
         void trackClick(product.id, action);
     };
 
+    const handleCategoryChange = (id: string | null) => {
+        if (typeof window === 'undefined') {
+            setActiveCategoryId(id ? String(id) : null);
+            return;
+        }
+
+        const nextParams = new URLSearchParams(window.location.search);
+        if (id) {
+            nextParams.set('cat', String(id));
+        } else {
+            nextParams.delete('cat');
+        }
+        const nextQuery = nextParams.toString();
+        const nextPath = nextQuery ? `${window.location.pathname}?${nextQuery}` : window.location.pathname;
+        router.replace(nextPath);
+        setActiveCategoryId(id ? String(id) : null);
+    };
+
     const clearAllFilters = () => {
         setSearchQuery('');
         setStockFilter(null);
-        setActiveCategoryId(null);
+        handleCategoryChange(null);
     };
 
     const getCategoryName = (product: Product) =>
@@ -205,7 +284,7 @@ export default function CatalogViewWithModal() {
                     <FilterPanelEnhanced
                         categories={activeCategories}
                         activeCategoryId={activeCategoryId}
-                        onCategoryChange={setActiveCategoryId}
+                        onCategoryChange={handleCategoryChange}
                         products={allProducts}
                         isOpen={isSidebarOpen}
                     />
@@ -326,18 +405,76 @@ export default function CatalogViewWithModal() {
                                 </button>
                             </div>
                         ) : (
-                            <div className={`grid gap-5 ${viewMode === 'grid' ? 'grid-cols-1 md:grid-cols-2 2xl:grid-cols-3' : 'grid-cols-1'}`}>
-                                {filteredProducts.map((product) => (
-                                    <CatalogProductCard
-                                        key={product.id}
-                                        product={product}
-                                        viewMode={viewMode}
-                                        categoryLabel={getCategoryName(product)}
-                                        onOpen={() => handleProductOpen(product)}
-                                        onIntentClick={(action) => handleProductIntentClick(product, action)}
-                                    />
-                                ))}
-                            </div>
+                            <>
+                                <div className={`grid gap-5 ${viewMode === 'grid' ? 'grid-cols-1 md:grid-cols-2 2xl:grid-cols-3' : 'grid-cols-1'}`}>
+                                    {paginatedProducts.map((product) => (
+                                        <CatalogProductCard
+                                            key={product.id}
+                                            product={product}
+                                            viewMode={viewMode}
+                                            categoryLabel={getCategoryName(product)}
+                                            onOpen={() => handleProductOpen(product)}
+                                            onIntentClick={(action) => handleProductIntentClick(product, action)}
+                                        />
+                                    ))}
+                                </div>
+
+                                {totalPages > 1 && (
+                                    <nav className="mt-6 flex items-center justify-between gap-3" aria-label="Paginación de productos">
+                                        <button
+                                            type="button"
+                                            onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                                            disabled={currentPage === 1}
+                                            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                                        >
+                                            <ChevronLeft className="h-4 w-4" />
+                                            Anterior
+                                        </button>
+
+                                        <div className="md:hidden text-sm font-semibold text-slate-600">
+                                            Página {currentPage} de {totalPages}
+                                        </div>
+
+                                        <div className="hidden md:flex items-center gap-1.5">
+                                            {getPaginationItems(currentPage, totalPages).map((item, idx) => {
+                                                if (item === 'ellipsis') {
+                                                    return (
+                                                        <span key={`ellipsis-${idx}`} className="px-2 text-slate-400">
+                                                            ...
+                                                        </span>
+                                                    );
+                                                }
+
+                                                return (
+                                                    <button
+                                                        key={item}
+                                                        type="button"
+                                                        onClick={() => setCurrentPage(item)}
+                                                        aria-current={item === currentPage ? 'page' : undefined}
+                                                        className={`h-9 min-w-9 rounded-lg px-2 text-sm font-bold transition-colors ${
+                                                            item === currentPage
+                                                                ? 'bg-orange-600 text-white'
+                                                                : 'border border-slate-200 text-slate-700 hover:bg-slate-50'
+                                                        }`}
+                                                    >
+                                                        {item}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+
+                                        <button
+                                            type="button"
+                                            onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                                            disabled={currentPage === totalPages}
+                                            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                                        >
+                                            Siguiente
+                                            <ChevronRight className="h-4 w-4" />
+                                        </button>
+                                    </nav>
+                                )}
+                            </>
                         )}
                     </main>
                 </div>
@@ -417,14 +554,14 @@ function CatalogProductCard({
                             Categoria: {categoryLabel}
                         </span>
                     </div>
-                    <h3 className="font-bold text-slate-800 text-base md:text-lg truncate">{product.title}</h3>
+                    <h3 className="font-bold text-slate-800 text-base md:text-lg leading-snug break-words">{product.title}</h3>
                     <p className="text-sm text-slate-600">{product.presentacion ?? product.unit}</p>
                 </div>
                 <div className="text-right shrink-0">
                     {product.precioVisible !== false ? (
                         <p className="text-lg md:text-xl font-bold text-slate-800">${formatPrice(product.price)}</p>
                     ) : (
-                        <p className="text-base md:text-lg font-bold text-orange-700">Consultar precio</p>
+                        <p className="hidden md:block text-base md:text-lg font-bold text-orange-700">Consultar precio</p>
                     )}
                     <button
                         onClick={(e) => {

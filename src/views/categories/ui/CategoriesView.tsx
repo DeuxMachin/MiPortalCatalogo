@@ -97,6 +97,15 @@ export default function CategoriesView() {
                         className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/25 focus:border-orange-300"
                     />
                 </div>
+
+                <button
+                    type="button"
+                    onClick={() => router.push('/catalog')}
+                    className="md:hidden mt-4 w-full inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 hover:border-orange-300 hover:text-orange-700 transition-colors"
+                >
+                    Ver todos los productos
+                    <ArrowRight className="w-4 h-4" />
+                </button>
             </div>
 
             {filteredCategories.length === 0 ? (
