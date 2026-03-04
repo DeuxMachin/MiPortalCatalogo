@@ -18,6 +18,7 @@ import {
     Package,
     Maximize2,
     X,
+    AlertTriangle,
 } from 'lucide-react';
 import { useProducts } from '@/src/features/product-management';
 import { useCategories } from '@/src/features/category-management';
@@ -1800,8 +1801,24 @@ export default function ProductFormView({ editProduct }: ProductFormViewProps) {
             </div>
 
             {saveError && (
-                <div className="mb-6 bg-red-50 border border-red-200 text-red-700 rounded-xl px-5 py-3.5 text-sm font-semibold">
-                    {saveError}
+                <div className="mb-6 bg-red-50 border border-red-200 rounded-xl px-5 py-4 flex gap-3 items-start">
+                    <AlertTriangle className="w-5 h-5 text-red-500 mt-0.5 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-red-700 leading-snug">
+                            No se pudo guardar el producto
+                        </p>
+                        <p className="text-sm text-red-600 mt-0.5 leading-snug">
+                            {saveError}
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => setSaveError(null)}
+                        className="shrink-0 text-red-400 hover:text-red-600 transition-colors"
+                        aria-label="Cerrar error"
+                    >
+                        <X className="w-4 h-4" />
+                    </button>
                 </div>
             )}
 

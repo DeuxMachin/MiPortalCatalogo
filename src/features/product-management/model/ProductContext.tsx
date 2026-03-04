@@ -18,6 +18,7 @@ import { reorderImagesUseCase } from '@/src/features/product-management/applicat
 import { reportError } from '@/src/shared/lib/errorTracking';
 import { getSupabaseBrowserClient } from '@/src/shared/lib/supabase';
 import { logAdminAudit } from '@/src/shared/lib/adminAudit';
+import { toUserFriendlyError } from '@/src/shared/lib/productErrorMessages';
 
 const DEFAULT_IMAGE =
     'https://images.unsplash.com/photo-1504917595217-d4dc5ebe6122?auto=format&fit=crop&q=80&w=600';
@@ -208,14 +209,7 @@ function mapRowToProduct(row: any, resolveImageUrl: (pathOrUrl: string) => strin
 }
 
 function normalizeSupabaseError(err: unknown, fallback: string): string {
-    if (!err) return fallback;
-    if (typeof err === 'string') return err;
-    if (err instanceof Error) {
-        // fetch abort (we add AbortController timeout in browser)
-        if (err.name === 'AbortError') return 'Tiempo de espera agotado al conectar con la base de datos.';
-        return err.message || fallback;
-    }
-    return fallback;
+    return toUserFriendlyError(err, fallback);
 }
 
 /* ------------------------------------------------------------------ */
@@ -400,7 +394,7 @@ export function ProductProvider({ children }: { children: ReactNode }) {
                     .eq('producto_id', productId);
 
                 if (delRowsErr) {
-                    return { success: false, error: delRowsErr.message };
+                    return { success: false, error: toUserFriendlyError(delRowsErr, 'No se pudieron eliminar las imágenes anteriores. Intenta nuevamente.') };
                 }
 
                 // Delete storage objects (best-effort)
@@ -457,7 +451,7 @@ export function ProductProvider({ children }: { children: ReactNode }) {
                         });
 
                     if (upErr) {
-                        return { success: false, error: upErr.message };
+                        return { success: false, error: toUserFriendlyError(upErr, 'No se pudo subir la imagen. Verifica que el archivo no esté dañado e intenta nuevamente.') };
                     }
 
                     rowsToInsert.push({ producto_id: productId, path_storage: path, orden: order });
@@ -468,7 +462,7 @@ export function ProductProvider({ children }: { children: ReactNode }) {
                     .insert(rowsToInsert);
 
                 if (insRowsErr) {
-                    return { success: false, error: insRowsErr.message };
+                    return { success: false, error: toUserFriendlyError(insRowsErr, 'No se pudieron guardar las referencias de las imágenes. Intenta nuevamente.') };
                 }
 
                 triggerRefetch();
@@ -504,7 +498,7 @@ export function ProductProvider({ children }: { children: ReactNode }) {
                     return {
                         producto_id: productId,
                         sku: finalSku,
-                        precio: variant.price != null ? Number(variant.price) : null,
+                        precio: variant.price != null ? Number(variant.price) : 0,
                         moneda: variant.unit ?? 'CLP',
                         estado_stock: variant.stock ?? 'EN STOCK',
                         nombre_formato: (variant as any).formatName ?? null,
@@ -564,7 +558,7 @@ export function ProductProvider({ children }: { children: ReactNode }) {
 
                 if (deleteErr) {
                     console.error('[setProductVariantsCore] Error eliminando variantes:', deleteErr.message);
-                    return { success: false, error: deleteErr.message };
+                    return { success: false, error: toUserFriendlyError(deleteErr, 'No se pudieron actualizar los formatos del producto. Intenta nuevamente.') };
                 }
 
                 if (normalized.length > 0) {
@@ -583,7 +577,7 @@ export function ProductProvider({ children }: { children: ReactNode }) {
                             }
                         }
 
-                        return { success: false, error: insertErr.message };
+                        return { success: false, error: toUserFriendlyError(insertErr, 'No se pudieron guardar los formatos del producto. Intenta nuevamente.') };
                     }
                 }
 
@@ -637,7 +631,7 @@ export function ProductProvider({ children }: { children: ReactNode }) {
                         context: { categoryId: data.categoryId, sku: data.sku },
                         critical: true,
                     });
-                    return { success: false, error: error?.message ?? 'No se pudo crear el producto' };
+                    return { success: false, error: toUserFriendlyError(error, 'No se pudo crear el producto. Intenta nuevamente o contacta al administrador.') };
                 }
 
                 const productId = String(inserted.id);
@@ -740,7 +734,7 @@ export function ProductProvider({ children }: { children: ReactNode }) {
                             context: { id },
                             critical: true,
                         });
-                        return { success: false, error: error.message };
+                        return { success: false, error: toUserFriendlyError(error, 'No se pudo actualizar el producto. Intenta nuevamente o contacta al administrador.') };
                     }
 
                     if (!updatedRows || updatedRows.length === 0) {
@@ -829,7 +823,7 @@ export function ProductProvider({ children }: { children: ReactNode }) {
                     .eq('producto_id', id);
                 if (variantsErr) {
                     console.error('[Products] Variants delete error:', variantsErr.message);
-                    return { success: false, error: variantsErr.message };
+                    return { success: false, error: toUserFriendlyError(variantsErr, 'No se pudo eliminar el producto correctamente. Intenta nuevamente.') };
                 }
 
                 const { data: deletedRows, error } = await sb.current
@@ -851,9 +845,7 @@ export function ProductProvider({ children }: { children: ReactNode }) {
                     });
                     return {
                         success: false,
-                        error: imagesDeleteError
-                            ? `${error.message} (además falló borrar imágenes: ${imagesDeleteError})`
-                            : error.message,
+                        error: toUserFriendlyError(error, 'No se pudo eliminar el producto. Intenta nuevamente o contacta al administrador.'),
                     };
                 }
 
